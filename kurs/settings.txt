@@ -1,4 +1,0 @@
-difficulty=0
-fieldSize=3
-winLineLength=3
-firstMove=0
