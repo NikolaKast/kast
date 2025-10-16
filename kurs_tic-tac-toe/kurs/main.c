@@ -9,7 +9,7 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "text/stb_truetype.h"
 // Библиотека для отрисовки буковок и чиселок, дополнительно подгружен шрифт arial.ttf
-
+// Тестовый комментарий для гита
 
 
                                                     /*                                СТРУКТУРЫ                                     */
