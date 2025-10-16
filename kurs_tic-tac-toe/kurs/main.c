@@ -8,135 +8,135 @@
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "text/stb_truetype.h"
-// Библиотека для отрисовки буковок и чиселок, дополнительно подгружен шрифт arial.ttf
+// ГЃГЁГЎГ«ГЁГ®ГІГҐГЄГ  Г¤Г«Гї Г®ГІГ°ГЁГ±Г®ГўГЄГЁ ГЎГіГЄГ®ГўГ®ГЄ ГЁ Г·ГЁГ±ГҐГ«Г®ГЄ, Г¤Г®ГЇГ®Г«Г­ГЁГІГҐГ«ГјГ­Г® ГЇГ®Г¤ГЈГ°ГіГ¦ГҐГ­ ГёГ°ГЁГґГІ arial.ttf
 
 
 
-                                                    /*                                СТРУКТУРЫ                                     */
-// Состояния меню приложения
+                                                    /*                                Г‘Г’ГђГ“ГЉГ’Г“ГђГ›                                     */
+// Г‘Г®Г±ГІГ®ГїГ­ГЁГї Г¬ГҐГ­Гѕ ГЇГ°ГЁГ«Г®Г¦ГҐГ­ГЁГї
 typedef enum {
-    MENU_MAIN,     // Главное меню
-    MENU_GAME,     // Игровой экран
-    MENU_ABOUT,    // Экран "О программе"
-    MENU_SETTINGS  // Экран настроек
+    MENU_MAIN,     // ГѓГ«Г ГўГ­Г®ГҐ Г¬ГҐГ­Гѕ
+    MENU_GAME,     // Г€ГЈГ°Г®ГўГ®Г© ГЅГЄГ°Г Г­
+    MENU_ABOUT,    // ГќГЄГ°Г Г­ "ГЋ ГЇГ°Г®ГЈГ°Г Г¬Г¬ГҐ"
+    MENU_SETTINGS  // ГќГЄГ°Г Г­ Г­Г Г±ГІГ°Г®ГҐГЄ
 } AppMenuState;
 
-// Уровни сложности игры
+// Г“Г°Г®ГўГ­ГЁ Г±Г«Г®Г¦Г­Г®Г±ГІГЁ ГЁГЈГ°Г»
 typedef enum {
-    DIFFICULTY_EASY,    // Легкий
-    DIFFICULTY_MEDIUM,  // Средний
-    DIFFICULTY_HARD,    // Сложный
-    DIFFICULTY_EXPERT   // Эксперт
+    DIFFICULTY_EASY,    // Г‹ГҐГЈГЄГЁГ©
+    DIFFICULTY_MEDIUM,  // Г‘Г°ГҐГ¤Г­ГЁГ©
+    DIFFICULTY_HARD,    // Г‘Г«Г®Г¦Г­Г»Г©
+    DIFFICULTY_EXPERT   // ГќГЄГ±ГЇГҐГ°ГІ
 } GameDifficulty;
 
 typedef enum {
-    GAME_RESULT_NONE = 0,   // Игра продолжается
-    GAME_RESULT_WIN = 1,    // Победа
-    GAME_RESULT_LOSE = -1,  // Поражение
-    GAME_RESULT_DRAW = 2    // Ничья
+    GAME_RESULT_NONE = 0,   // Г€ГЈГ°Г  ГЇГ°Г®Г¤Г®Г«Г¦Г ГҐГІГ±Гї
+    GAME_RESULT_WIN = 1,    // ГЏГ®ГЎГҐГ¤Г 
+    GAME_RESULT_LOSE = -1,  // ГЏГ®Г°Г Г¦ГҐГ­ГЁГҐ
+    GAME_RESULT_DRAW = 2    // ГЌГЁГ·ГјГї
 } GameResultType;
 
-// Тип хода (игрок/бот)
+// Г’ГЁГЇ ГµГ®Г¤Г  (ГЁГЈГ°Г®ГЄ/ГЎГ®ГІ)
 typedef enum {
-    MOVE_PLAYER,  // Ход игрока (крестик)
-    MOVE_AI       // Ход бота (нолик)
+    MOVE_PLAYER,  // Г•Г®Г¤ ГЁГЈГ°Г®ГЄГ  (ГЄГ°ГҐГ±ГІГЁГЄ)
+    MOVE_AI       // Г•Г®Г¤ ГЎГ®ГІГ  (Г­Г®Г«ГЁГЄ)
 } MoveType;
 
 typedef enum {
-    FIRST_MOVE_PLAYER,  // Игрок ходит первым (крестики)
-    FIRST_MOVE_AI       // Бот ходит первым (нолики)
+    FIRST_MOVE_PLAYER,  // Г€ГЈГ°Г®ГЄ ГµГ®Г¤ГЁГІ ГЇГҐГ°ГўГ»Г¬ (ГЄГ°ГҐГ±ГІГЁГЄГЁ)
+    FIRST_MOVE_AI       // ГЃГ®ГІ ГµГ®Г¤ГЁГІ ГЇГҐГ°ГўГ»Г¬ (Г­Г®Г«ГЁГЄГЁ)
 } FirstMove;
 
-// Элемент очереди
+// ГќГ«ГҐГ¬ГҐГ­ГІ Г®Г·ГҐГ°ГҐГ¤ГЁ
 typedef struct MoveLog {
-    int x, y;           // Координаты
-    MoveType type;       // Тип хода
+    int x, y;           // ГЉГ®Г®Г°Г¤ГЁГ­Г ГІГ»
+    MoveType type;       // Г’ГЁГЇ ГµГ®Г¤Г 
     struct MoveLog* next;
 } MoveLog;
 
-// Очередь (FIFO)
+// ГЋГ·ГҐГ°ГҐГ¤Гј (FIFO)
 typedef struct {
-    MoveLog* head;       // Первый элемент
-    MoveLog* tail;       // Последний элемент
-    int count;           // Текущее количество (макс 6)
+    MoveLog* head;       // ГЏГҐГ°ГўГ»Г© ГЅГ«ГҐГ¬ГҐГ­ГІ
+    MoveLog* tail;       // ГЏГ®Г±Г«ГҐГ¤Г­ГЁГ© ГЅГ«ГҐГ¬ГҐГ­ГІ
+    int count;           // Г’ГҐГЄГіГ№ГҐГҐ ГЄГ®Г«ГЁГ·ГҐГ±ГІГўГ® (Г¬Г ГЄГ± 6)
 } MoveLogger;
 
-// Камера для управления видом игрового поля
+// ГЉГ Г¬ГҐГ°Г  Г¤Г«Гї ГіГЇГ°Г ГўГ«ГҐГ­ГЁГї ГўГЁГ¤Г®Г¬ ГЁГЈГ°Г®ГўГ®ГЈГ® ГЇГ®Г«Гї
 typedef struct {
-    float zoom;     // Масштаб
-    float offsetX;  // Смещение по X
-    float offsetY;  // Смещение по Y
+    float zoom;     // ГЊГ Г±ГёГІГ ГЎ
+    float offsetX;  // Г‘Г¬ГҐГ№ГҐГ­ГЁГҐ ГЇГ® X
+    float offsetY;  // Г‘Г¬ГҐГ№ГҐГ­ГЁГҐ ГЇГ® Y
 } Camera;
 
-// Состояние мыши
+// Г‘Г®Г±ГІГ®ГїГ­ГЁГҐ Г¬Г»ГёГЁ
 typedef struct {
-    double lastX;       // Последняя позиция X
-    double lastY;       // Последняя позиция Y
-    int isDragging:2;     // Флаг перетаскивания
+    double lastX;       // ГЏГ®Г±Г«ГҐГ¤Г­ГїГї ГЇГ®Г§ГЁГ¶ГЁГї X
+    double lastY;       // ГЏГ®Г±Г«ГҐГ¤Г­ГїГї ГЇГ®Г§ГЁГ¶ГЁГї Y
+    int isDragging:2;     // Г”Г«Г ГЈ ГЇГҐГ°ГҐГІГ Г±ГЄГЁГўГ Г­ГЁГї
 } MouseState;
 
-// Клетка игрового поля
+// ГЉГ«ГҐГІГЄГ  ГЁГЈГ°Г®ГўГ®ГЈГ® ГЇГ®Г«Гї
 typedef struct {
-    int x, y;          // Координаты
-    short int symbol:3;   // Символ (0 - пусто, 1 - крестик, 2 - нолик)
+    int x, y;          // ГЉГ®Г®Г°Г¤ГЁГ­Г ГІГ»
+    short int symbol:3;   // Г‘ГЁГ¬ГўГ®Г« (0 - ГЇГіГ±ГІГ®, 1 - ГЄГ°ГҐГ±ГІГЁГЄ, 2 - Г­Г®Г«ГЁГЄ)
 } Cell;
 
-// Игровое поле
+// Г€ГЈГ°Г®ГўГ®ГҐ ГЇГ®Г«ГҐ
 typedef struct {
-    Cell* cells;    // Массив клеток
-    int size;       // Текущий размер
-    int capacity;   // Выделенная память
+    Cell* cells;    // ГЊГ Г±Г±ГЁГў ГЄГ«ГҐГІГ®ГЄ
+    int size;       // Г’ГҐГЄГіГ№ГЁГ© Г°Г Г§Г¬ГҐГ°
+    int capacity;   // Г‚Г»Г¤ГҐГ«ГҐГ­Г­Г Гї ГЇГ Г¬ГїГІГј
 } Grid;
 
-// Настройки игры
+// ГЌГ Г±ГІГ°Г®Г©ГЄГЁ ГЁГЈГ°Г»
 typedef struct {
-    GameDifficulty difficulty;  // Уровень сложности(4)
-    int fieldSize;             // Размер поля (0 - бесконечное)
-    int winLineLength;         // Длина выигрышной линии (минимум 3)
-    FirstMove firstMove;       // Кто ходит первым
+    GameDifficulty difficulty;  // Г“Г°Г®ГўГҐГ­Гј Г±Г«Г®Г¦Г­Г®Г±ГІГЁ(4)
+    int fieldSize;             // ГђГ Г§Г¬ГҐГ° ГЇГ®Г«Гї (0 - ГЎГҐГ±ГЄГ®Г­ГҐГ·Г­Г®ГҐ)
+    int winLineLength;         // Г„Г«ГЁГ­Г  ГўГ»ГЁГЈГ°Г»ГёГ­Г®Г© Г«ГЁГ­ГЁГЁ (Г¬ГЁГ­ГЁГ¬ГіГ¬ 3)
+    FirstMove firstMove;       // ГЉГІГ® ГµГ®Г¤ГЁГІ ГЇГҐГ°ГўГ»Г¬
 } GameSettings;
 
-// Основное состояние приложения
+// ГЋГ±Г­Г®ГўГ­Г®ГҐ Г±Г®Г±ГІГ®ГїГ­ГЁГҐ ГЇГ°ГЁГ«Г®Г¦ГҐГ­ГЁГї
 typedef struct {
-    Camera camera;              // Камера
-    MouseState mouse;           // Состояние мыши
-    Grid grid;                  // Игровое поле
-    int selectedCellX;          // Выбранная клетка X
-    int selectedCellY;          // Выбранная клетка Y
-    AppMenuState currentState;  // Текущее состояние меню
-    int menuSelectedItem:3;       // Выбранный пункт главного меню
-    int showHelp:2;               // Показать справку
-    int settingsSelectedItem:3;   // Выбранный пункт настроек
+    Camera camera;              // ГЉГ Г¬ГҐГ°Г 
+    MouseState mouse;           // Г‘Г®Г±ГІГ®ГїГ­ГЁГҐ Г¬Г»ГёГЁ
+    Grid grid;                  // Г€ГЈГ°Г®ГўГ®ГҐ ГЇГ®Г«ГҐ
+    int selectedCellX;          // Г‚Г»ГЎГ°Г Г­Г­Г Гї ГЄГ«ГҐГІГЄГ  X
+    int selectedCellY;          // Г‚Г»ГЎГ°Г Г­Г­Г Гї ГЄГ«ГҐГІГЄГ  Y
+    AppMenuState currentState;  // Г’ГҐГЄГіГ№ГҐГҐ Г±Г®Г±ГІГ®ГїГ­ГЁГҐ Г¬ГҐГ­Гѕ
+    int menuSelectedItem:3;       // Г‚Г»ГЎГ°Г Г­Г­Г»Г© ГЇГіГ­ГЄГІ ГЈГ«Г ГўГ­Г®ГЈГ® Г¬ГҐГ­Гѕ
+    int showHelp:2;               // ГЏГ®ГЄГ Г§Г ГІГј Г±ГЇГ°Г ГўГЄГі
+    int settingsSelectedItem:3;   // Г‚Г»ГЎГ°Г Г­Г­Г»Г© ГЇГіГ­ГЄГІ Г­Г Г±ГІГ°Г®ГҐГЄ
 
-    stbtt_bakedchar cdata[96];  // Данные шрифта
-    GLuint fontTexture;         // Текстура шрифта
-    float fontSize;             // Размер шрифта
-    float saveNotificationTimer;// Таймер уведомления о сохранении
+    stbtt_bakedchar cdata[96];  // Г„Г Г­Г­Г»ГҐ ГёГ°ГЁГґГІГ 
+    GLuint fontTexture;         // Г’ГҐГЄГ±ГІГіГ°Г  ГёГ°ГЁГґГІГ 
+    float fontSize;             // ГђГ Г§Г¬ГҐГ° ГёГ°ГЁГґГІГ 
+    float saveNotificationTimer;// Г’Г Г©Г¬ГҐГ° ГіГўГҐГ¤Г®Г¬Г«ГҐГ­ГЁГї Г® Г±Г®ГµГ°Г Г­ГҐГ­ГЁГЁ
 
-    GameSettings settings;       // Текущие настройки
-    GameSettings defaultSettings; // Настройки из settings.txt
+    GameSettings settings;       // Г’ГҐГЄГіГ№ГЁГҐ Г­Г Г±ГІГ°Г®Г©ГЄГЁ
+    GameSettings defaultSettings; // ГЌГ Г±ГІГ°Г®Г©ГЄГЁ ГЁГ§ settings.txt
 
 
     union {
-        int rawResult;                  // Доступ как к числу (для совместимости)
-        GameResultType resultType;       // Типизированный доступ
+        int rawResult;                  // Г„Г®Г±ГІГіГЇ ГЄГ ГЄ ГЄ Г·ГЁГ±Г«Гі (Г¤Г«Гї Г±Г®ГўГ¬ГҐГ±ГІГЁГ¬Г®Г±ГІГЁ)
+        GameResultType resultType;       // Г’ГЁГЇГЁГ§ГЁГ°Г®ГўГ Г­Г­Г»Г© Г¤Г®Г±ГІГіГЇ
         struct {
-            unsigned int isWin : 1;        // Флаг победы
-            unsigned int isLose : 1;       // Флаг поражения
-            unsigned int isDraw : 1;       // Флаг ничьи
+            unsigned int isWin : 1;        // Г”Г«Г ГЈ ГЇГ®ГЎГҐГ¤Г»
+            unsigned int isLose : 1;       // Г”Г«Г ГЈ ГЇГ®Г°Г Г¦ГҐГ­ГЁГї
+            unsigned int isDraw : 1;       // Г”Г«Г ГЈ Г­ГЁГ·ГјГЁ
         };
     } gameResult;
-    int winLineStartX;       // Начало линии (координаты клетки)
+    int winLineStartX;       // ГЌГ Г·Г Г«Г® Г«ГЁГ­ГЁГЁ (ГЄГ®Г®Г°Г¤ГЁГ­Г ГІГ» ГЄГ«ГҐГІГЄГЁ)
     int winLineStartY;
-    int winLineEndX;         // Конец линии (координаты клетки)
+    int winLineEndX;         // ГЉГ®Г­ГҐГ¶ Г«ГЁГ­ГЁГЁ (ГЄГ®Г®Г°Г¤ГЁГ­Г ГІГ» ГЄГ«ГҐГІГЄГЁ)
     int winLineEndY;
 
-    MoveLogger logger;  // Логгер ходов
-    int showMoveLog;    // Флаг для отображения окна (1 - показать, 0 - скрыть)
+    MoveLogger logger;  // Г‹Г®ГЈГЈГҐГ° ГµГ®Г¤Г®Гў
+    int showMoveLog;    // Г”Г«Г ГЈ Г¤Г«Гї Г®ГІГ®ГЎГ°Г Г¦ГҐГ­ГЁГї Г®ГЄГ­Г  (1 - ГЇГ®ГЄГ Г§Г ГІГј, 0 - Г±ГЄГ°Г»ГІГј)
 } AppState;
 
 
-// Прототипы функций для ботов
+// ГЏГ°Г®ГІГ®ГІГЁГЇГ» ГґГіГ­ГЄГ¶ГЁГ© Г¤Г«Гї ГЎГ®ГІГ®Гў
 void makeAIMoveEasy(AppState* state);
 void makeAIMoveMedium(AppState* state);
 void makeAIMoveHard(AppState* state);
@@ -146,40 +146,40 @@ void makeAIMoveExpert(AppState* state);
 
 
 
-                                            /*                                     ГРАФИКА                                                */
+                                            /*                                     ГѓГђГЂГ”Г€ГЉГЂ                                                */
 
 
 
 
-// Прототип для сохранений
+// ГЏГ°Г®ГІГ®ГІГЁГЇ Г¤Г«Гї Г±Г®ГµГ°Г Г­ГҐГ­ГЁГ©
 void saveSettings(const GameSettings* settings);
 
-// Прототип чеков
+// ГЏГ°Г®ГІГ®ГІГЁГЇ Г·ГҐГЄГ®Гў
 int checkWinCondition(AppState* state, int symbol, int winLength);
 int checkForDraw(AppState* state);
 
-// Инициализация состояния приложения
+// Г€Г­ГЁГ¶ГЁГ Г«ГЁГ§Г Г¶ГЁГї Г±Г®Г±ГІГ®ГїГ­ГЁГї ГЇГ°ГЁГ«Г®Г¦ГҐГ­ГЁГї
 void initAppState(AppState* state) {
-    // Настройки камеры
+    // ГЌГ Г±ГІГ°Г®Г©ГЄГЁ ГЄГ Г¬ГҐГ°Г»
     state->camera.zoom = 1.0f;
     state->camera.offsetX = 0.0f;
     state->camera.offsetY = 0.0f;
 
-    // Состояние мыши
+    // Г‘Г®Г±ГІГ®ГїГ­ГЁГҐ Г¬Г»ГёГЁ
     state->mouse.lastX = 0.0;
     state->mouse.lastY = 0.0;
     state->mouse.isDragging = 0;
 
-    // Игровое поле
+    // Г€ГЈГ°Г®ГўГ®ГҐ ГЇГ®Г«ГҐ
     state->grid.cells = NULL;
     state->grid.size = 0;
     state->grid.capacity = 0;
 
-    // Выбранная клетка
+    // Г‚Г»ГЎГ°Г Г­Г­Г Гї ГЄГ«ГҐГІГЄГ 
     state->selectedCellX = 0;
     state->selectedCellY = 0;
 
-    // Состояние интерфейса
+    // Г‘Г®Г±ГІГ®ГїГ­ГЁГҐ ГЁГ­ГІГҐГ°ГґГҐГ©Г±Г 
     state->currentState = MENU_MAIN;
     state->showHelp = 0;
     state->menuSelectedItem = 0;
@@ -188,19 +188,19 @@ void initAppState(AppState* state) {
     state->fontSize = 32.0f;
     state->saveNotificationTimer = 0.0f;
 
-    // Логгер ходов
+    // Г‹Г®ГЈГЈГҐГ° ГµГ®Г¤Г®Гў
     state->logger.head = NULL;
     state->logger.tail = NULL;
     state->logger.count = 0;
-    state->showMoveLog = 0;  // По умолчанию окно скрыто
+    state->showMoveLog = 0;  // ГЏГ® ГіГ¬Г®Г«Г·Г Г­ГЁГѕ Г®ГЄГ­Г® Г±ГЄГ°Г»ГІГ®
 
     
     
-    // Настройки по умолчанию
+    // ГЌГ Г±ГІГ°Г®Г©ГЄГЁ ГЇГ® ГіГ¬Г®Г«Г·Г Г­ГЁГѕ
     state->settings.difficulty = DIFFICULTY_EASY;
-    state->settings.fieldSize = 0;      // Бесконечное поле
-    state->settings.winLineLength = 3;  // Выигрышная линия из 3 символов
-    state->settings.firstMove = FIRST_MOVE_PLAYER; // По умолчанию игрок ходит первым
+    state->settings.fieldSize = 0;      // ГЃГҐГ±ГЄГ®Г­ГҐГ·Г­Г®ГҐ ГЇГ®Г«ГҐ
+    state->settings.winLineLength = 3;  // Г‚Г»ГЁГЈГ°Г»ГёГ­Г Гї Г«ГЁГ­ГЁГї ГЁГ§ 3 Г±ГЁГ¬ГўГ®Г«Г®Гў
+    state->settings.firstMove = FIRST_MOVE_PLAYER; // ГЏГ® ГіГ¬Г®Г«Г·Г Г­ГЁГѕ ГЁГЈГ°Г®ГЄ ГµГ®Г¤ГЁГІ ГЇГҐГ°ГўГ»Г¬
     FILE* settingsFile = fopen("settings.txt", "r");
     if (settingsFile) {
         char line[256];
@@ -228,23 +228,23 @@ void initAppState(AppState* state) {
         fclose(settingsFile);
     }
     else {
-        // Если файла нет, создать его с дефолтными настройками
+        // Г…Г±Г«ГЁ ГґГ Г©Г«Г  Г­ГҐГІ, Г±Г®Г§Г¤Г ГІГј ГҐГЈГ® Г± Г¤ГҐГґГ®Г«ГІГ­Г»Г¬ГЁ Г­Г Г±ГІГ°Г®Г©ГЄГ Г¬ГЁ
         saveSettings(&state->settings);
     }
 
-    // Установка текущих настройки равными дефолтным
+    // Г“Г±ГІГ Г­Г®ГўГЄГ  ГІГҐГЄГіГ№ГЁГµ Г­Г Г±ГІГ°Г®Г©ГЄГЁ Г°Г ГўГ­Г»Г¬ГЁ Г¤ГҐГґГ®Г«ГІГ­Г»Г¬
     state->defaultSettings = state->settings;
 
-    state->gameResult.rawResult = 0;          // 0 - нет результата, 1 - победа, -1 - поражение
-    state->winLineStartX = 0;       // Начало линии (координаты клетки)
+    state->gameResult.rawResult = 0;          // 0 - Г­ГҐГІ Г°ГҐГ§ГіГ«ГјГІГ ГІГ , 1 - ГЇГ®ГЎГҐГ¤Г , -1 - ГЇГ®Г°Г Г¦ГҐГ­ГЁГҐ
+    state->winLineStartX = 0;       // ГЌГ Г·Г Г«Г® Г«ГЁГ­ГЁГЁ (ГЄГ®Г®Г°Г¤ГЁГ­Г ГІГ» ГЄГ«ГҐГІГЄГЁ)
     state->winLineStartY = 0;
-    state->winLineEndX = 0;         // Конец линии (координаты клетки)
+    state->winLineEndX = 0;         // ГЉГ®Г­ГҐГ¶ Г«ГЁГ­ГЁГЁ (ГЄГ®Г®Г°Г¤ГЁГ­Г ГІГ» ГЄГ«ГҐГІГЄГЁ)
     state->winLineEndY = 0;
 }
 
 
 
-// Сохранение настроек в файл
+// Г‘Г®ГµГ°Г Г­ГҐГ­ГЁГҐ Г­Г Г±ГІГ°Г®ГҐГЄ Гў ГґГ Г©Г«
 void saveSettings(const GameSettings* settings) {
     FILE* file = fopen("settings.txt", "w");
     if (!file) {
@@ -260,7 +260,7 @@ void saveSettings(const GameSettings* settings) {
     fclose(file);
 }
 
-// Очищение поля
+// ГЋГ·ГЁГ№ГҐГ­ГЁГҐ ГЇГ®Г«Гї
 void cleanupGrid(Grid* grid) {
     if (grid->cells) {
         free(grid->cells);
@@ -278,7 +278,7 @@ void cleanupMoveLogger(MoveLogger* logger) {
 
     MoveLog* current = logger->head;
     while (current != NULL) {
-        MoveLog* next = current->next;  // Копируем next до free
+        MoveLog* next = current->next;  // ГЉГ®ГЇГЁГ°ГіГҐГ¬ next Г¤Г® free
         free(current);
         current = next;
     }
@@ -300,7 +300,7 @@ void logMove(MoveLogger* logger, int x, int y, MoveType type) {
     }
 
     if (logger->count >= 6) {
-        // Удаляем самый старый ход (FIFO)
+        // Г“Г¤Г Г«ГїГҐГ¬ Г±Г Г¬Г»Г© Г±ГІГ Г°Г»Г© ГµГ®Г¤ (FIFO)
         MoveLog* temp = logger->head;
         logger->head = logger->head->next;
         free(temp);
@@ -319,23 +319,23 @@ void logMove(MoveLogger* logger, int x, int y, MoveType type) {
 }
 
 
-// Функция добавления клетки
+// Г”ГіГ­ГЄГ¶ГЁГї Г¤Г®ГЎГ ГўГ«ГҐГ­ГЁГї ГЄГ«ГҐГІГЄГЁ
 void addCell(Grid* grid, int x, int y) {
-    //  Проверка входного параметра
+    //  ГЏГ°Г®ГўГҐГ°ГЄГ  ГўГµГ®Г¤Г­Г®ГЈГ® ГЇГ Г°Г Г¬ГҐГІГ°Г 
     if (grid == NULL) return;
 
-    //  Проверка на дубликаты
+    //  ГЏГ°Г®ГўГҐГ°ГЄГ  Г­Г  Г¤ГіГЎГ«ГЁГЄГ ГІГ»
     for (int i = 0; i < grid->size; ++i) {
         if (grid->cells[i].x == x && grid->cells[i].y == y) {
             return;
         }
     }
 
-    //  Расширение массива при необходимости
+    //  ГђГ Г±ГёГЁГ°ГҐГ­ГЁГҐ Г¬Г Г±Г±ГЁГўГ  ГЇГ°ГЁ Г­ГҐГ®ГЎГµГ®Г¤ГЁГ¬Г®Г±ГІГЁ
     if (grid->size >= grid->capacity) {
         const int newCapacity = (grid->capacity == 0) ? 4 : grid->capacity * 2;
 
-        // Создаем временный указатель для анализатора
+        // Г‘Г®Г§Г¤Г ГҐГ¬ ГўГ°ГҐГ¬ГҐГ­Г­Г»Г© ГіГЄГ Г§Г ГІГҐГ«Гј Г¤Г«Гї Г Г­Г Г«ГЁГ§Г ГІГ®Г°Г 
         Cell* const newCells = (Cell*)realloc(grid->cells, newCapacity * sizeof(Cell));
         if (!newCells) {
             fprintf(stderr, "Memory allocation failed\n");
@@ -347,18 +347,18 @@ void addCell(Grid* grid, int x, int y) {
         grid->capacity = newCapacity;
     }
 
-    //  Костыль для VS2019 - делаем запись через указатель
+    //  ГЉГ®Г±ГІГ»Г«Гј Г¤Г«Гї VS2019 - Г¤ГҐГ«Г ГҐГ¬ Г§Г ГЇГЁГ±Гј Г·ГҐГ°ГҐГ§ ГіГЄГ Г§Г ГІГҐГ«Гј
     Cell* target = grid->cells + grid->size;
     target->x = x;
     target->y = y;
     target->symbol = 0;
 
-    //  Увеличиваем размер только после успешной записи
+    //  Г“ГўГҐГ«ГЁГ·ГЁГўГ ГҐГ¬ Г°Г Г§Г¬ГҐГ° ГІГ®Г«ГјГЄГ® ГЇГ®Г±Г«ГҐ ГіГ±ГЇГҐГёГ­Г®Г© Г§Г ГЇГЁГ±ГЁ
     grid->size++;
 }
 
 
-// Инициализация и создание текста
+// Г€Г­ГЁГ¶ГЁГ Г«ГЁГ§Г Г¶ГЁГї ГЁ Г±Г®Г§Г¤Г Г­ГЁГҐ ГІГҐГЄГ±ГІГ 
 int initText(AppState* state, const char* fontPath) {
     FILE* fontFile = fopen(fontPath, "rb");
     if (!fontFile) {
@@ -390,7 +390,7 @@ int initText(AppState* state, const char* fontPath) {
     stbtt_BakeFontBitmap(fontBuffer, 0, state->fontSize,
         tempBitmap, texWidth, texHeight, 32, 96, state->cdata);
 
-    // Создание текстуры
+    // Г‘Г®Г§Г¤Г Г­ГЁГҐ ГІГҐГЄГ±ГІГіГ°Г»
     glGenTextures(1, &state->fontTexture);
     glBindTexture(GL_TEXTURE_2D, state->fontTexture);
 
@@ -419,7 +419,7 @@ int initText(AppState* state, const char* fontPath) {
 }
 
 
-// Функция сохранения игры
+// Г”ГіГ­ГЄГ¶ГЁГї Г±Г®ГµГ°Г Г­ГҐГ­ГЁГї ГЁГЈГ°Г»
 void saveGame(const Grid* grid, const GameSettings* settings) {
     FILE* file = fopen("saves.txt", "w");
     if (!file) {
@@ -427,14 +427,14 @@ void saveGame(const Grid* grid, const GameSettings* settings) {
         return;
     }
 
-    // Сохраняем настройки первой строкой, добавляем firstMove
+    // Г‘Г®ГµГ°Г Г­ГїГҐГ¬ Г­Г Г±ГІГ°Г®Г©ГЄГЁ ГЇГҐГ°ГўГ®Г© Г±ГІГ°Г®ГЄГ®Г©, Г¤Г®ГЎГ ГўГ«ГїГҐГ¬ firstMove
     fprintf(file, "SETTINGS %d %d %d %d\n",
         settings->difficulty,
         settings->fieldSize,
         settings->winLineLength,
-        settings->firstMove);  // Добавляем сохранение порядка хода
+        settings->firstMove);  // Г„Г®ГЎГ ГўГ«ГїГҐГ¬ Г±Г®ГµГ°Г Г­ГҐГ­ГЁГҐ ГЇГ®Г°ГїГ¤ГЄГ  ГµГ®Г¤Г 
 
-    // Затем сохраняем клетки
+    // Г‡Г ГІГҐГ¬ Г±Г®ГµГ°Г Г­ГїГҐГ¬ ГЄГ«ГҐГІГЄГЁ
     for (int i = 0; i < grid->size; i++) {
         fprintf(file, "%d %d %d\n", grid->cells[i].x, grid->cells[i].y, grid->cells[i].symbol);
     }
@@ -443,7 +443,7 @@ void saveGame(const Grid* grid, const GameSettings* settings) {
 }
 
 
-// Загрузка игры
+// Г‡Г ГЈГ°ГіГ§ГЄГ  ГЁГЈГ°Г»
 int loadGame(Grid* grid, GameSettings* settings) {
     FILE* file = fopen("saves.txt", "r");
     if (!file) {
@@ -454,7 +454,7 @@ int loadGame(Grid* grid, GameSettings* settings) {
 
     cleanupGrid(grid);
 
-    // Настройки из первой строки файла
+    // ГЌГ Г±ГІГ°Г®Г©ГЄГЁ ГЁГ§ ГЇГҐГ°ГўГ®Г© Г±ГІГ°Г®ГЄГЁ ГґГ Г©Г«Г 
     char line[256];
     if (fgets(line, sizeof(line), file)) {
         if (strncmp(line, "SETTINGS", 8) == 0) {
@@ -464,19 +464,19 @@ int loadGame(Grid* grid, GameSettings* settings) {
                 &temp1,
                 &settings->fieldSize,
                 &settings->winLineLength,
-                &temp2);  // Загружаем порядок хода
+                &temp2);  // Г‡Г ГЈГ°ГіГ¦Г ГҐГ¬ ГЇГ®Г°ГїГ¤Г®ГЄ ГµГ®Г¤Г 
             settings->difficulty = (GameDifficulty)temp1;
             settings->firstMove = (FirstMove)temp2;
 
-            // Если не удалось прочитать firstMove (старый формат файла)
+            // Г…Г±Г«ГЁ Г­ГҐ ГіГ¤Г Г«Г®Г±Гј ГЇГ°Г®Г·ГЁГІГ ГІГј firstMove (Г±ГІГ Г°Г»Г© ГґГ®Г°Г¬Г ГІ ГґГ Г©Г«Г )
             if (check < 4) {
-                settings->firstMove = FIRST_MOVE_PLAYER; // Устанавливаем по умолчанию
+                settings->firstMove = FIRST_MOVE_PLAYER; // Г“Г±ГІГ Г­Г ГўГ«ГЁГўГ ГҐГ¬ ГЇГ® ГіГ¬Г®Г«Г·Г Г­ГЁГѕ
             }
         }
         else {
-            // Если файл старого формата, переходим в начало
+            // Г…Г±Г«ГЁ ГґГ Г©Г« Г±ГІГ Г°Г®ГЈГ® ГґГ®Г°Г¬Г ГІГ , ГЇГҐГ°ГҐГµГ®Г¤ГЁГ¬ Гў Г­Г Г·Г Г«Г®
             fseek(file, 0, SEEK_SET);
-            settings->firstMove = FIRST_MOVE_PLAYER; // Устанавливаем по умолчанию
+            settings->firstMove = FIRST_MOVE_PLAYER; // Г“Г±ГІГ Г­Г ГўГ«ГЁГўГ ГҐГ¬ ГЇГ® ГіГ¬Г®Г«Г·Г Г­ГЁГѕ
         }
     }
 
@@ -491,7 +491,7 @@ int loadGame(Grid* grid, GameSettings* settings) {
 }
 
 
-// Рендер текста
+// ГђГҐГ­Г¤ГҐГ° ГІГҐГЄГ±ГІГ 
 void renderText(AppState* state, const char* text, float x, float y, float scale, float r, float g, float b, float a) {
     if (!state->fontTexture) return;
 
@@ -529,11 +529,11 @@ void renderText(AppState* state, const char* text, float x, float y, float scale
     glDisable(GL_BLEND);
 }
 
-// Отрисовка уведомления сохранения
+// ГЋГІГ°ГЁГ±Г®ГўГЄГ  ГіГўГҐГ¤Г®Г¬Г«ГҐГ­ГЁГї Г±Г®ГµГ°Г Г­ГҐГ­ГЁГї
 void drawSaveNotification(AppState* state, int width, int height) {
     if (state->saveNotificationTimer <= 0.0f) return;
 
-    // Сохраняем текущую матрицу проекции
+    // Г‘Г®ГµГ°Г Г­ГїГҐГ¬ ГІГҐГЄГіГ№ГіГѕ Г¬Г ГІГ°ГЁГ¶Гі ГЇГ°Г®ГҐГЄГ¶ГЁГЁ
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
@@ -543,16 +543,16 @@ void drawSaveNotification(AppState* state, int width, int height) {
     glPushMatrix();
     glLoadIdentity();
 
-    // Размеры и позиция уведомления
+    // ГђГ Г§Г¬ГҐГ°Г» ГЁ ГЇГ®Г§ГЁГ¶ГЁГї ГіГўГҐГ¤Г®Г¬Г«ГҐГ­ГЁГї
     float notifWidth = 300;
     float notifHeight = 60;
     float notifX = (width - notifWidth) / 2;
     float notifY = height - 100.0f;
 
-    // Рисуем полупрозрачный фон
+    // ГђГЁГ±ГіГҐГ¬ ГЇГ®Г«ГіГЇГ°Г®Г§Г°Г Г·Г­Г»Г© ГґГ®Г­
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glColor4f(0.1f, 0.5f, 0.1f, 0.9f * (state->saveNotificationTimer / 1.0f)); // Плавное исчезновение
+    glColor4f(0.1f, 0.5f, 0.1f, 0.9f * (state->saveNotificationTimer / 1.0f)); // ГЏГ«Г ГўГ­Г®ГҐ ГЁГ±Г·ГҐГ§Г­Г®ГўГҐГ­ГЁГҐ
     glBegin(GL_QUADS);
     glVertex2f(notifX, notifY);
     glVertex2f(notifX + notifWidth, notifY);
@@ -561,7 +561,7 @@ void drawSaveNotification(AppState* state, int width, int height) {
     glEnd();
     glDisable(GL_BLEND);
 
-    // Рамка
+    // ГђГ Г¬ГЄГ 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glColor4f(0.8f, 1.0f, 0.8f, 0.9f * (state->saveNotificationTimer / 1.0f));
@@ -574,13 +574,13 @@ void drawSaveNotification(AppState* state, int width, int height) {
     glEnd();
     glDisable(GL_BLEND);
 
-    // Текст уведомления
+    // Г’ГҐГЄГ±ГІ ГіГўГҐГ¤Г®Г¬Г«ГҐГ­ГЁГї
     float textAlpha = state->saveNotificationTimer / 1.0f;
     renderText(state, "Game saved successfully!",
         notifX + 20, notifY + 35,
         0.7f, 1.0f, 1.0f, 1.0f, textAlpha); 
 
-    // Восстанавливаем матрицы
+    // Г‚Г®Г±Г±ГІГ Г­Г ГўГ«ГЁГўГ ГҐГ¬ Г¬Г ГІГ°ГЁГ¶Г»
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
@@ -588,7 +588,7 @@ void drawSaveNotification(AppState* state, int width, int height) {
 }
 
 
-// Отрисовка главного меню
+// ГЋГІГ°ГЁГ±Г®ГўГЄГ  ГЈГ«Г ГўГ­Г®ГЈГ® Г¬ГҐГ­Гѕ
 void drawMainMenu(AppState* state) {
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -596,7 +596,7 @@ void drawMainMenu(AppState* state) {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    // Фон меню
+    // Г”Г®Г­ Г¬ГҐГ­Гѕ
     glColor3f(0.1f, 0.1f, 0.2f);
     glBegin(GL_QUADS);
     glVertex2f(0, 0);
@@ -605,7 +605,7 @@ void drawMainMenu(AppState* state) {
     glVertex2f(0, 1240);
     glEnd();
 
-    // Заголовок
+    // Г‡Г ГЈГ®Г«Г®ГўГ®ГЄ
     float titleWidth = 0;
     const char* title = "Krestiki-Noliki";
     const char* p = title;
@@ -617,7 +617,7 @@ void drawMainMenu(AppState* state) {
     }
     renderText(state, title, (1240 - titleWidth * 1.5f) / 2, 1000, 1.5f, 1.0f, 1.0f, 1.0f, 1.0f);
 
-    // Кнопки меню
+    // ГЉГ­Г®ГЇГЄГЁ Г¬ГҐГ­Гѕ
     const char* items[] = { "New Game", "Load Game", "Settings", "About" };
     for (int i = 0; i < 4; i++) {
         float x = 500;
@@ -625,7 +625,7 @@ void drawMainMenu(AppState* state) {
         float width = 240;
         float height = 80;
 
-        // Рамка кнопки
+        // ГђГ Г¬ГЄГ  ГЄГ­Г®ГЇГЄГЁ
         glColor3f(0.4f, 0.4f, 0.4f);
         glBegin(GL_LINE_LOOP);
         glVertex2f(x, y);
@@ -634,7 +634,7 @@ void drawMainMenu(AppState* state) {
         glVertex2f(x, y + height);
         glEnd();
 
-        // Заливка кнопки
+        // Г‡Г Г«ГЁГўГЄГ  ГЄГ­Г®ГЇГЄГЁ
         if (i == state->menuSelectedItem) {
             glColor3f(0.3f, 0.3f, 0.6f);
         }
@@ -648,7 +648,7 @@ void drawMainMenu(AppState* state) {
         glVertex2f(x + 2, y + height - 2);
         glEnd();
 
-        // Текст кнопки
+        // Г’ГҐГЄГ±ГІ ГЄГ­Г®ГЇГЄГЁ
         float textWidth = 0;
         p = items[i];
         while (*p) {
@@ -663,7 +663,7 @@ void drawMainMenu(AppState* state) {
     }
 }
 
-// Отрисовка меню об авторах
+// ГЋГІГ°ГЁГ±Г®ГўГЄГ  Г¬ГҐГ­Гѕ Г®ГЎ Г ГўГІГ®Г°Г Гµ
 void drawAboutScreen(AppState* state) {
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -671,7 +671,7 @@ void drawAboutScreen(AppState* state) {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    // Фон
+    // Г”Г®Г­
     glColor3f(0.1f, 0.2f, 0.1f);
     glBegin(GL_QUADS);
     glVertex2f(0, 0);
@@ -680,7 +680,7 @@ void drawAboutScreen(AppState* state) {
     glVertex2f(0, 1240);
     glEnd();
 
-    // Заголовок
+    // Г‡Г ГЈГ®Г«Г®ГўГ®ГЄ
     float titleWidth = 0;
     const char* title = "About";
     const char* p = title;
@@ -692,7 +692,7 @@ void drawAboutScreen(AppState* state) {
     }
     renderText(state, title, (1240 - titleWidth * 1.5f) / 2, 1000, 1.5f, 1.0f, 1.0f, 1.0f, 1.0f);
 
-    // Текст
+    // Г’ГҐГЄГ±ГІ
     const char* lines[] = {
         "Krestiki-Noliki Game",
         "Version 1.0 2025y.",
@@ -720,26 +720,26 @@ void drawAboutScreen(AppState* state) {
 }
 
 
-//  функция отрисовки экрана настроек
+//  ГґГіГ­ГЄГ¶ГЁГї Г®ГІГ°ГЁГ±Г®ГўГЄГЁ ГЅГЄГ°Г Г­Г  Г­Г Г±ГІГ°Г®ГҐГЄ
 void drawSettingsScreen(AppState* state, GLFWwindow* window) {
-    // Получаем координаты мыши
+    // ГЏГ®Г«ГіГ·Г ГҐГ¬ ГЄГ®Г®Г°Г¤ГЁГ­Г ГІГ» Г¬Г»ГёГЁ
     double mouseX, mouseY;
     glfwGetCursorPos(window, &mouseX, &mouseY);
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
-    mouseY = height - mouseY; // Инвертируем Y
-    // Масштабируем к виртуальным координатам 1240x1240
+    mouseY = height - mouseY; // Г€Г­ГўГҐГ°ГІГЁГ°ГіГҐГ¬ Y
+    // ГЊГ Г±ГёГІГ ГЎГЁГ°ГіГҐГ¬ ГЄ ГўГЁГ°ГІГіГ Г«ГјГ­Г»Г¬ ГЄГ®Г®Г°Г¤ГЁГ­Г ГІГ Г¬ 1240x1240
     mouseX = (mouseX / width) * 1240.0f;
     mouseY = (mouseY / height) * 1240.0f;
 
-    // Установка матрицы проекции
+    // Г“Г±ГІГ Г­Г®ГўГЄГ  Г¬Г ГІГ°ГЁГ¶Г» ГЇГ°Г®ГҐГЄГ¶ГЁГЁ
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(0, 1240, 0, 1240, -1, 1);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    // Фон
+    // Г”Г®Г­
     glColor3f(0.2f, 0.1f, 0.1f);
     glBegin(GL_QUADS);
     glVertex2f(0, 0);
@@ -748,39 +748,39 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
     glVertex2f(0, 1240);
     glEnd();
 
-    // Заголовок
+    // Г‡Г ГЈГ®Г«Г®ГўГ®ГЄ
     renderText(state, "Settings", 500, 1100, 1.5f, 1.0f, 1.0f, 1.0f, 1.0f);
 
-    // Координаты и размеры элементов
+    // ГЉГ®Г®Г°Г¤ГЁГ­Г ГІГ» ГЁ Г°Г Г§Г¬ГҐГ°Г» ГЅГ«ГҐГ¬ГҐГ­ГІГ®Гў
     float yPos = 800;
     float buttonWidth = 120;
     float buttonHeight = 50;
     float arrowSize = 20;
     float valueBoxX = 700;
 
-    //  Настройка сложности
+    //  ГЌГ Г±ГІГ°Г®Г©ГЄГ  Г±Г«Г®Г¦Г­Г®Г±ГІГЁ
     renderText(state, "Difficulty Level:", 300.0f, yPos, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
 
     const char* difficultyOptions[] = { "Easy", "Medium", "Hard", "Expert" };
     for (int i = 0; i < 4; i++) {
         float xPos = 600.0f + i * 130.0f;
 
-        // Проверка наведения мыши
+        // ГЏГ°Г®ГўГҐГ°ГЄГ  Г­Г ГўГҐГ¤ГҐГ­ГЁГї Г¬Г»ГёГЁ
         int isHovered = (mouseX >= xPos && mouseX <= (double)xPos + buttonWidth &&
             mouseY >= yPos && mouseY <= (double)yPos + buttonHeight);
 
-        // Цвет кнопки
+        // Г–ГўГҐГІ ГЄГ­Г®ГЇГЄГЁ
         if ((int)state->settings.difficulty == i) {
-            glColor3f(0.4f, 0.4f, 0.8f); // Выбранный вариант
+            glColor3f(0.4f, 0.4f, 0.8f); // Г‚Г»ГЎГ°Г Г­Г­Г»Г© ГўГ Г°ГЁГ Г­ГІ
         }
         else if (isHovered) {
-            glColor3f(0.3f, 0.3f, 0.6f); // Наведение
+            glColor3f(0.3f, 0.3f, 0.6f); // ГЌГ ГўГҐГ¤ГҐГ­ГЁГҐ
         }
         else {
-            glColor3f(0.2f, 0.2f, 0.4f); // Обычный
+            glColor3f(0.2f, 0.2f, 0.4f); // ГЋГЎГ»Г·Г­Г»Г©
         }
 
-        // Рисуем кнопку
+        // ГђГЁГ±ГіГҐГ¬ ГЄГ­Г®ГЇГЄГі
         glBegin(GL_QUADS);
         glVertex2f(xPos, yPos);
         glVertex2f(xPos + buttonWidth, yPos);
@@ -788,7 +788,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
         glVertex2f(xPos, yPos + buttonHeight);
         glEnd();
 
-        // Рамка
+        // ГђГ Г¬ГЄГ 
         glColor3f(0.8f, 0.8f, 0.8f);
         glLineWidth(2.0f);
         glBegin(GL_LINE_LOOP);
@@ -798,7 +798,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
         glVertex2f(xPos, yPos + buttonHeight);
         glEnd();
 
-        // Текст
+        // Г’ГҐГЄГ±ГІ
         float textWidth = 0;
         const char* p = difficultyOptions[i];
         while (*p) {
@@ -811,20 +811,20 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
             0.7f, 1.0f, 1.0f, 1.0f, 1.0f);
     }
 
-    //  Размер поля
+    //  ГђГ Г§Г¬ГҐГ° ГЇГ®Г«Гї
     yPos -= 120;
     renderText(state, "Field Size (0=infinite):", 300, yPos, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
 
     char fieldSizeText[32];
     snprintf(fieldSizeText, sizeof(fieldSizeText), "%d", state->settings.fieldSize);
 
-    // Проверка наведения на кнопки
+    // ГЏГ°Г®ГўГҐГ°ГЄГ  Г­Г ГўГҐГ¤ГҐГ­ГЁГї Г­Г  ГЄГ­Г®ГЇГЄГЁ
     int decHovered = (mouseX >= (double)valueBoxX - 40 && mouseX <= (double)valueBoxX - 10 &&
         mouseY >= yPos && mouseY <= (double)yPos + buttonHeight);
     int incHovered = (mouseX >= (double)valueBoxX + buttonWidth + 10 && mouseX <= (double)valueBoxX + buttonWidth + 40 &&
         mouseY >= yPos && mouseY <= (double)yPos + buttonHeight);
 
-    // Кнопка уменьшения
+    // ГЉГ­Г®ГЇГЄГ  ГіГ¬ГҐГ­ГјГёГҐГ­ГЁГї
     glColor3f(decHovered ? 0.4f : 0.3f, 0.3f, 0.6f);
     glBegin(GL_TRIANGLES);
     glVertex2f(valueBoxX - 25, yPos + buttonHeight / 2);
@@ -832,7 +832,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
     glVertex2f(valueBoxX - 10, yPos + buttonHeight / 2 + arrowSize / 2);
     glEnd();
 
-    // Поле значения
+    // ГЏГ®Г«ГҐ Г§Г­Г Г·ГҐГ­ГЁГї
     glColor3f(0.3f, 0.3f, 0.6f);
     glBegin(GL_QUADS);
     glVertex2f(valueBoxX, yPos);
@@ -841,7 +841,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
     glVertex2f(valueBoxX, yPos + buttonHeight);
     glEnd();
 
-    // Кнопка увеличения
+    // ГЉГ­Г®ГЇГЄГ  ГіГўГҐГ«ГЁГ·ГҐГ­ГЁГї
     glColor3f(incHovered ? 0.4f : 0.3f, 0.3f, 0.6f);
     glBegin(GL_TRIANGLES);
     glVertex2f(valueBoxX + buttonWidth + 25, yPos + buttonHeight / 2);
@@ -849,7 +849,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
     glVertex2f(valueBoxX + buttonWidth + 10, yPos + buttonHeight / 2 + arrowSize / 2);
     glEnd();
 
-    // Рамка
+    // ГђГ Г¬ГЄГ 
     glColor3f(0.8f, 0.8f, 0.8f);
     glLineWidth(2.0f);
     glBegin(GL_LINE_LOOP);
@@ -859,7 +859,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
     glVertex2f(valueBoxX, yPos + buttonHeight);
     glEnd();
 
-    // Текст значения
+    // Г’ГҐГЄГ±ГІ Г§Г­Г Г·ГҐГ­ГЁГї
     float textWidth = 0;
     const char* p = fieldSizeText;
     while (*p) {
@@ -871,20 +871,20 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
         yPos + (buttonHeight - state->fontSize * 0.6f) / 2 + state->fontSize * 0.5f,
         0.7f, 1.0f, 1.0f, 1.0f, 1.0f);
 
-    //  Длина выигрышной линии
+    //  Г„Г«ГЁГ­Г  ГўГ»ГЁГЈГ°Г»ГёГ­Г®Г© Г«ГЁГ­ГЁГЁ
     yPos -= 120;
     renderText(state, "Win Line Length:", 300, yPos, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
 
     char winLineText[32];
     snprintf(winLineText, sizeof(winLineText), "%d", state->settings.winLineLength);
 
-    // Проверка наведения на кнопки
+    // ГЏГ°Г®ГўГҐГ°ГЄГ  Г­Г ГўГҐГ¤ГҐГ­ГЁГї Г­Г  ГЄГ­Г®ГЇГЄГЁ
     decHovered = (mouseX >= (double)valueBoxX - 40 && mouseX <= (double)valueBoxX - 10 &&
         mouseY >= yPos && mouseY <= (double)yPos + buttonHeight);
     incHovered = (mouseX >= (double)valueBoxX + buttonWidth + 10 && mouseX <= (double)valueBoxX + buttonWidth + 40 &&
         mouseY >= yPos && mouseY <= (double)yPos + buttonHeight);
 
-    // Кнопка уменьшения
+    // ГЉГ­Г®ГЇГЄГ  ГіГ¬ГҐГ­ГјГёГҐГ­ГЁГї
     glColor3f(decHovered ? 0.4f : 0.3f, 0.3f, 0.6f);
     glBegin(GL_TRIANGLES);
     glVertex2f(valueBoxX - 25, yPos + buttonHeight / 2);
@@ -892,7 +892,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
     glVertex2f(valueBoxX - 10, yPos + buttonHeight / 2 + arrowSize / 2);
     glEnd();
 
-    // Поле значения
+    // ГЏГ®Г«ГҐ Г§Г­Г Г·ГҐГ­ГЁГї
     glColor3f(0.3f, 0.3f, 0.6f);
     glBegin(GL_QUADS);
     glVertex2f(valueBoxX, yPos);
@@ -901,7 +901,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
     glVertex2f(valueBoxX, yPos + buttonHeight);
     glEnd();
 
-    // Кнопка увеличения
+    // ГЉГ­Г®ГЇГЄГ  ГіГўГҐГ«ГЁГ·ГҐГ­ГЁГї
     glColor3f(incHovered ? 0.4f : 0.3f, 0.3f, 0.6f);
     glBegin(GL_TRIANGLES);
     glVertex2f(valueBoxX + buttonWidth + 25, yPos + buttonHeight / 2);
@@ -909,7 +909,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
     glVertex2f(valueBoxX + buttonWidth + 10, yPos + buttonHeight / 2 + arrowSize / 2);
     glEnd();
 
-    // Рамка
+    // ГђГ Г¬ГЄГ 
     glColor3f(0.8f, 0.8f, 0.8f);
     glLineWidth(2.0f);
     glBegin(GL_LINE_LOOP);
@@ -919,7 +919,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
     glVertex2f(valueBoxX, yPos + buttonHeight);
     glEnd();
 
-    // Текст значения
+    // Г’ГҐГЄГ±ГІ Г§Г­Г Г·ГҐГ­ГЁГї
     textWidth = 0;
     p = winLineText;
     while (*p) {
@@ -937,22 +937,22 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
     for (int i = 0; i < 2; i++) {
         float xPos = 600.0f + i * 130.0f;
 
-        // Проверка наведения мыши
+        // ГЏГ°Г®ГўГҐГ°ГЄГ  Г­Г ГўГҐГ¤ГҐГ­ГЁГї Г¬Г»ГёГЁ
         int isHovered = (mouseX >= xPos && mouseX <= (double)xPos + buttonWidth &&
             mouseY >= yPos && mouseY <= (double)yPos + buttonHeight);
 
-        // Цвет кнопки
+        // Г–ГўГҐГІ ГЄГ­Г®ГЇГЄГЁ
         if ((int)state->settings.firstMove == i) {
-            glColor3f(0.4f, 0.4f, 0.8f); // Выбранный вариант
+            glColor3f(0.4f, 0.4f, 0.8f); // Г‚Г»ГЎГ°Г Г­Г­Г»Г© ГўГ Г°ГЁГ Г­ГІ
         }
         else if (isHovered) {
-            glColor3f(0.3f, 0.3f, 0.6f); // Наведение
+            glColor3f(0.3f, 0.3f, 0.6f); // ГЌГ ГўГҐГ¤ГҐГ­ГЁГҐ
         }
         else {
-            glColor3f(0.2f, 0.2f, 0.4f); // Обычный
+            glColor3f(0.2f, 0.2f, 0.4f); // ГЋГЎГ»Г·Г­Г»Г©
         }
 
-        // Рисуем кнопку
+        // ГђГЁГ±ГіГҐГ¬ ГЄГ­Г®ГЇГЄГі
         glBegin(GL_QUADS);
         glVertex2f(xPos, yPos);
         glVertex2f(xPos + buttonWidth, yPos);
@@ -960,7 +960,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
         glVertex2f(xPos, yPos + buttonHeight);
         glEnd();
 
-        // Рамка
+        // ГђГ Г¬ГЄГ 
         glColor3f(0.8f, 0.8f, 0.8f);
         glLineWidth(2.0f);
         glBegin(GL_LINE_LOOP);
@@ -970,7 +970,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
         glVertex2f(xPos, yPos + buttonHeight);
         glEnd();
 
-        // Текст
+        // Г’ГҐГЄГ±ГІ
         textWidth = 0;
         p = firstMoveOptions[i];
         while (*p) {
@@ -983,13 +983,13 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
             0.7f, 1.0f, 1.0f, 1.0f, 1.0f);
     }
 
-    //  Кнопка сохранения
+    //  ГЉГ­Г®ГЇГЄГ  Г±Г®ГµГ°Г Г­ГҐГ­ГЁГї
     yPos -= 150;
     float saveX = (1240 - 300) / 2;
     int saveHovered = (mouseX >= saveX && mouseX <= (double)saveX + 300 &&
         mouseY >= yPos && mouseY <= (double)yPos + 60);
 
-    // Фон кнопки
+    // Г”Г®Г­ ГЄГ­Г®ГЇГЄГЁ
     glColor3f(saveHovered ? 0.4f : 0.3f, saveHovered ? 0.8f : 0.6f, 0.4f);
     glBegin(GL_QUADS);
     glVertex2f(saveX, yPos);
@@ -998,7 +998,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
     glVertex2f(saveX, yPos + 60);
     glEnd();
 
-    // Рамка
+    // ГђГ Г¬ГЄГ 
     glColor3f(0.8f, 0.8f, 0.8f);
     glLineWidth(2.0f);
     glBegin(GL_LINE_LOOP);
@@ -1008,35 +1008,35 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
     glVertex2f(saveX, yPos + 60);
     glEnd();
 
-    // Текст
+    // Г’ГҐГЄГ±ГІ
     renderText(state, "Save Settings", saveX + 70, yPos + 30, 0.9f, 1.0f, 1.0f, 1.0f, 1.0f);
 
-    // Кнопка назад
+    // ГЉГ­Г®ГЇГЄГ  Г­Г Г§Г Г¤
     renderText(state, "Back (ESC)", 50, 50, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
 }
 
 
-// Полная функция обработки кликов в настройках
+// ГЏГ®Г«Г­Г Гї ГґГіГ­ГЄГ¶ГЁГї Г®ГЎГ°Г ГЎГ®ГІГЄГЁ ГЄГ«ГЁГЄГ®Гў Гў Г­Г Г±ГІГ°Г®Г©ГЄГ Гµ
 void handleSettingsClick(AppState* state, GLFWwindow* window, int button) {
     if (button != GLFW_MOUSE_BUTTON_LEFT) return;
 
-    // Получаем координаты мыши
+    // ГЏГ®Г«ГіГ·Г ГҐГ¬ ГЄГ®Г®Г°Г¤ГЁГ­Г ГІГ» Г¬Г»ГёГЁ
     double mouseX, mouseY;
     glfwGetCursorPos(window, &mouseX, &mouseY);
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
-    mouseY = height - mouseY; // Инвертируем Y
-    // Масштабируем к виртуальным координатам 1240x1240
+    mouseY = height - mouseY; // Г€Г­ГўГҐГ°ГІГЁГ°ГіГҐГ¬ Y
+    // ГЊГ Г±ГёГІГ ГЎГЁГ°ГіГҐГ¬ ГЄ ГўГЁГ°ГІГіГ Г«ГјГ­Г»Г¬ ГЄГ®Г®Г°Г¤ГЁГ­Г ГІГ Г¬ 1240x1240
     mouseX = (mouseX / width) * 1240.0f;
     mouseY = (mouseY / height) * 1240.0f;
 
-    // Координаты элементов
+    // ГЉГ®Г®Г°Г¤ГЁГ­Г ГІГ» ГЅГ«ГҐГ¬ГҐГ­ГІГ®Гў
     float yPos = 800;
     float buttonWidth = 120;
     float buttonHeight = 50;
     float valueBoxX = 700;
 
-    //  Проверка кликов по уровню сложности
+    //  ГЏГ°Г®ГўГҐГ°ГЄГ  ГЄГ«ГЁГЄГ®Гў ГЇГ® ГіГ°Г®ГўГ­Гѕ Г±Г«Г®Г¦Г­Г®Г±ГІГЁ
     for (int i = 0; i < 4; i++) {
         float xPos = 600.0f + i * 130.0f;
         if (mouseX >= xPos && mouseX <= (double)xPos + buttonWidth &&
@@ -1046,10 +1046,10 @@ void handleSettingsClick(AppState* state, GLFWwindow* window, int button) {
         }
     }
 
-    //  Проверка кликов по размеру поля
+    //  ГЏГ°Г®ГўГҐГ°ГЄГ  ГЄГ«ГЁГЄГ®Гў ГЇГ® Г°Г Г§Г¬ГҐГ°Гі ГЇГ®Г«Гї
     yPos -= 120;
 
-    // Кнопка уменьшения
+    // ГЉГ­Г®ГЇГЄГ  ГіГ¬ГҐГ­ГјГёГҐГ­ГЁГї
     if (mouseX >= (double)valueBoxX - 40 && mouseX <= (double)valueBoxX - 10 &&
         mouseY >= yPos && mouseY <= (double)yPos + buttonHeight) {
         if (state->settings.fieldSize <= 1) {
@@ -1061,7 +1061,7 @@ void handleSettingsClick(AppState* state, GLFWwindow* window, int button) {
         return;
     }
 
-    // Кнопка увеличения
+    // ГЉГ­Г®ГЇГЄГ  ГіГўГҐГ«ГЁГ·ГҐГ­ГЁГї
     if (mouseX >= (double)valueBoxX + buttonWidth + 10 && mouseX <= (double)valueBoxX + buttonWidth + 40 &&
         mouseY >= yPos && mouseY <= (double)yPos + buttonHeight) {
         if (state->settings.fieldSize == 0) {
@@ -1076,17 +1076,17 @@ void handleSettingsClick(AppState* state, GLFWwindow* window, int button) {
         state->settings.winLineLength = state->settings.fieldSize;
     }
 
-    //  Проверка кликов по длине линии
+    //  ГЏГ°Г®ГўГҐГ°ГЄГ  ГЄГ«ГЁГЄГ®Гў ГЇГ® Г¤Г«ГЁГ­ГҐ Г«ГЁГ­ГЁГЁ
     yPos -= 120;
 
-    // Кнопка уменьшения
+    // ГЉГ­Г®ГЇГЄГ  ГіГ¬ГҐГ­ГјГёГҐГ­ГЁГї
     if (mouseX >= (double)valueBoxX - 40 && mouseX <= (double)valueBoxX - 10 &&
         mouseY >= yPos && mouseY <= (double)yPos + buttonHeight) {
         state->settings.winLineLength = (state->settings.winLineLength > 3) ? state->settings.winLineLength - 1 : 3;
         return;
     }
 
-    // Кнопка увеличения
+    // ГЉГ­Г®ГЇГЄГ  ГіГўГҐГ«ГЁГ·ГҐГ­ГЁГї
     if ((float)mouseX >= valueBoxX + buttonWidth + 10 && (float)mouseX <= valueBoxX + buttonWidth + 40 &&
         mouseY >= yPos && mouseY <= (double)yPos + buttonHeight) {
         if (state->settings.winLineLength < state->settings.fieldSize || state->settings.fieldSize == 0) {
@@ -1106,24 +1106,24 @@ void handleSettingsClick(AppState* state, GLFWwindow* window, int button) {
     }
     
 
-    //  Проверка клика по кнопке сохранения
+    //  ГЏГ°Г®ГўГҐГ°ГЄГ  ГЄГ«ГЁГЄГ  ГЇГ® ГЄГ­Г®ГЇГЄГҐ Г±Г®ГµГ°Г Г­ГҐГ­ГЁГї
     yPos -= 150;
     float saveX = (1240 - 300) / 2;
     if (mouseX >= saveX && mouseX <= (double)saveX + 300 &&
         mouseY >= yPos && mouseY <= (double)yPos + 60) {
         saveSettings(&state->settings);
-        state->defaultSettings = state->settings; // Обновляем дефолтные настройки
+        state->defaultSettings = state->settings; // ГЋГЎГ­Г®ГўГ«ГїГҐГ¬ Г¤ГҐГґГ®Г«ГІГ­Г»ГҐ Г­Г Г±ГІГ°Г®Г©ГЄГЁ
         return;
     }
 
-    //  Проверка клика по кнопке назад (верхний левый угол)
+    //  ГЏГ°Г®ГўГҐГ°ГЄГ  ГЄГ«ГЁГЄГ  ГЇГ® ГЄГ­Г®ГЇГЄГҐ Г­Г Г§Г Г¤ (ГўГҐГ°ГµГ­ГЁГ© Г«ГҐГўГ»Г© ГіГЈГ®Г«)
     if (mouseX < 200 && mouseY < 100) {
         state->currentState = MENU_MAIN;
     }
 }
 
 
-// Замена виндовской функции _itoa т.к. для линуха низя
+// Г‡Г Г¬ГҐГ­Г  ГўГЁГ­Г¤Г®ГўГ±ГЄГ®Г© ГґГіГ­ГЄГ¶ГЁГЁ _itoa ГІ.ГЄ. Г¤Г«Гї Г«ГЁГ­ГіГµГ  Г­ГЁГ§Гї
 static void int_to_str(int value, char* str, int base) {
     if (base < 2 || base > 36) {
         *str = '\0';
@@ -1133,20 +1133,20 @@ static void int_to_str(int value, char* str, int base) {
     char* ptr = str;
     int is_negative = 0;
 
-    // Обработка отрицательных чисел для base 10
+    // ГЋГЎГ°Г ГЎГ®ГІГЄГ  Г®ГІГ°ГЁГ¶Г ГІГҐГ«ГјГ­Г»Гµ Г·ГЁГ±ГҐГ« Г¤Г«Гї base 10
     if (value < 0 && base == 10) {
         is_negative = 1;
         value = -value;
     }
 
-    // Обрабатываем 0 явно, иначе будет пустая строка
+    // ГЋГЎГ°Г ГЎГ ГІГ»ГўГ ГҐГ¬ 0 ГїГўГ­Г®, ГЁГ­Г Г·ГҐ ГЎГіГ¤ГҐГІ ГЇГіГ±ГІГ Гї Г±ГІГ°Г®ГЄГ 
     if (value == 0) {
         *ptr++ = '0';
         *ptr = '\0';
         return;
     }
 
-    // Записываем цифры в обратном порядке
+    // Г‡Г ГЇГЁГ±Г»ГўГ ГҐГ¬ Г¶ГЁГґГ°Г» Гў Г®ГЎГ°Г ГІГ­Г®Г¬ ГЇГ®Г°ГїГ¤ГЄГҐ
     char* start = ptr;
     while (value != 0) {
         int digit = value % base;
@@ -1154,14 +1154,14 @@ static void int_to_str(int value, char* str, int base) {
         value /= base;
     }
 
-    // Добавляем знак минус для отрицательных чисел
+    // Г„Г®ГЎГ ГўГ«ГїГҐГ¬ Г§Г­Г ГЄ Г¬ГЁГ­ГіГ± Г¤Г«Гї Г®ГІГ°ГЁГ¶Г ГІГҐГ«ГјГ­Г»Гµ Г·ГЁГ±ГҐГ«
     if (is_negative) {
         *ptr++ = '-';
     }
 
     *ptr = '\0';
 
-    // Разворачиваем строку
+    // ГђГ Г§ГўГ®Г°Г Г·ГЁГўГ ГҐГ¬ Г±ГІГ°Г®ГЄГі
     ptr--;
     while (start < ptr) {
         char tmp = *start;
@@ -1171,9 +1171,9 @@ static void int_to_str(int value, char* str, int base) {
 }
 
 
-// Отрисовка окна помощи
+// ГЋГІГ°ГЁГ±Г®ГўГЄГ  Г®ГЄГ­Г  ГЇГ®Г¬Г®Г№ГЁ
 void drawHelpWindow(AppState* state) {
-    // Сохраняем текущую матрицу проекции
+    // Г‘Г®ГµГ°Г Г­ГїГҐГ¬ ГІГҐГЄГіГ№ГіГѕ Г¬Г ГІГ°ГЁГ¶Гі ГЇГ°Г®ГҐГЄГ¶ГЁГЁ
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
@@ -1183,7 +1183,7 @@ void drawHelpWindow(AppState* state) {
     glPushMatrix();
     glLoadIdentity();
 
-    // Рисуем полупрозрачный фон
+    // ГђГЁГ±ГіГҐГ¬ ГЇГ®Г«ГіГЇГ°Г®Г§Г°Г Г·Г­Г»Г© ГґГ®Г­
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glColor4f(0.1f, 0.1f, 0.2f, 0.9f);
@@ -1195,7 +1195,7 @@ void drawHelpWindow(AppState* state) {
     glEnd();
     glDisable(GL_BLEND);
 
-    // Рамка
+    // ГђГ Г¬ГЄГ 
     glColor3f(1.0f, 1.0f, 1.0f);
     glLineWidth(3.0f);
     glBegin(GL_LINE_LOOP);
@@ -1205,10 +1205,10 @@ void drawHelpWindow(AppState* state) {
     glVertex2f(300, 900);
     glEnd();
 
-    // Заголовок
+    // Г‡Г ГЈГ®Г«Г®ГўГ®ГЄ
     renderText(state, "Game Controls", 450, 850, 1.2f, 1.0f, 1.0f, 1.0f, 1.0f);
 
-    // Текст инструкций
+    // Г’ГҐГЄГ±ГІ ГЁГ­Г±ГІГ°ГіГЄГ¶ГЁГ©
     const char* instructions[] = {
         "WASD or Arrow Keys - Move cursor",
         "Shift - Center view on selected",
@@ -1224,7 +1224,7 @@ void drawHelpWindow(AppState* state) {
         "Press H to close"
     };
 
-    // Получаем текстовые представления настроек
+    // ГЏГ®Г«ГіГ·Г ГҐГ¬ ГІГҐГЄГ±ГІГ®ГўГ»ГҐ ГЇГ°ГҐГ¤Г±ГІГ ГўГ«ГҐГ­ГЁГї Г­Г Г±ГІГ°Г®ГҐГЄ
     const char* difficultyNames[] = { "Easy", "Medium", "Hard", "Expert" };
     char fieldSizeText[32];
     char winLineText[32];
@@ -1238,29 +1238,29 @@ void drawHelpWindow(AppState* state) {
         renderText(state, instructions[i], 320.0f, 750.0f - i * 50.0f, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
     }
 
-    // Отрисовываем настройки
+    // ГЋГІГ°ГЁГ±Г®ГўГ»ГўГ ГҐГ¬ Г­Г Г±ГІГ°Г®Г©ГЄГЁ
     renderText(state, instructions[6], 320, 450, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
 
-    // Сложность
+    // Г‘Г«Г®Г¦Г­Г®Г±ГІГј
     float x = 320;
     float y = 400;
     renderText(state, instructions[7], x, y, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
     renderText(state, difficultyNames[state->settings.difficulty], x + 200, y, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
 
-    // Размер поля
+    // ГђГ Г§Г¬ГҐГ° ГЇГ®Г«Гї
     y -= 50;
     renderText(state, instructions[8], x, y, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
     renderText(state, fieldSizeText, x + 200, y, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
 
-    // Длина линии
+    // Г„Г«ГЁГ­Г  Г«ГЁГ­ГЁГЁ
     y -= 50;
     renderText(state, instructions[9], x, y, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
     renderText(state, winLineText, x + 200, y, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
 
-    // Остальной текст
+    // ГЋГ±ГІГ Г«ГјГ­Г®Г© ГІГҐГЄГ±ГІ
     renderText(state, instructions[11], 320, 200, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
 
-    // Восстанавливаем матрицы
+    // Г‚Г®Г±Г±ГІГ Г­Г ГўГ«ГЁГўГ ГҐГ¬ Г¬Г ГІГ°ГЁГ¶Г»
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
@@ -1268,23 +1268,23 @@ void drawHelpWindow(AppState* state) {
 }
 
 void drawMoveLog(AppState* state) {
-    // 1. Настройка матриц и прозрачности
+    // 1. ГЌГ Г±ГІГ°Г®Г©ГЄГ  Г¬Г ГІГ°ГЁГ¶ ГЁ ГЇГ°Г®Г§Г°Г Г·Г­Г®Г±ГІГЁ
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
-    glOrtho(0, 1240, 0, 1240, -1, 1); // Размер окна 1240x1240
+    glOrtho(0, 1240, 0, 1240, -1, 1); // ГђГ Г§Г¬ГҐГ° Г®ГЄГ­Г  1240x1240
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
 
-    // 2. Параметры окна
+    // 2. ГЏГ Г°Г Г¬ГҐГІГ°Г» Г®ГЄГ­Г 
     float x = 50.0f, y = 100.0f;
     float width = 300.0f, height = 200.0f;
 
-    // 3. Фон окна (полупрозрачный)
+    // 3. Г”Г®Г­ Г®ГЄГ­Г  (ГЇГ®Г«ГіГЇГ°Г®Г§Г°Г Г·Г­Г»Г©)
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glColor4f(0.1f, 0.1f, 0.2f, 0.9f); // Темно-синий с прозрачностью
+    glColor4f(0.1f, 0.1f, 0.2f, 0.9f); // Г’ГҐГ¬Г­Г®-Г±ГЁГ­ГЁГ© Г± ГЇГ°Г®Г§Г°Г Г·Г­Г®Г±ГІГјГѕ
     glBegin(GL_QUADS);
     glVertex2f(x, y);
     glVertex2f(x + width, y);
@@ -1292,8 +1292,8 @@ void drawMoveLog(AppState* state) {
     glVertex2f(x, y + height);
     glEnd();
 
-    // 4. Рамка окна
-    glColor4f(0.8f, 0.8f, 0.8f, 1.0f); // Белая
+    // 4. ГђГ Г¬ГЄГ  Г®ГЄГ­Г 
+    glColor4f(0.8f, 0.8f, 0.8f, 1.0f); // ГЃГҐГ«Г Гї
     glLineWidth(2.0f);
     glBegin(GL_LINE_LOOP);
     glVertex2f(x, y);
@@ -1302,12 +1302,12 @@ void drawMoveLog(AppState* state) {
     glVertex2f(x, y + height);
     glEnd();
 
-    // 5. Текст (заголовок)
+    // 5. Г’ГҐГЄГ±ГІ (Г§Г ГЈГ®Г«Г®ГўГ®ГЄ)
     renderText(state, "Last Moves:", x + 10.0f, y + height - 30.0f, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
 
-    // 6. Список ходов
+    // 6. Г‘ГЇГЁГ±Г®ГЄ ГµГ®Г¤Г®Гў
     MoveLog* current = state->logger.head;
-    float textY = y + height - 60.0f; // Стартовая позиция для текста
+    float textY = y + height - 60.0f; // Г‘ГІГ Г°ГІГ®ГўГ Гї ГЇГ®Г§ГЁГ¶ГЁГї Г¤Г«Гї ГІГҐГЄГ±ГІГ 
     int count = 0;
 
     while (current != NULL && count < 6) {
@@ -1315,16 +1315,16 @@ void drawMoveLog(AppState* state) {
         const char* type = (current->type == MOVE_PLAYER) ? "Player" : "AI";
         snprintf(buf, sizeof(buf), "%s: (%d, %d)", type, current->x, current->y);
 
-        // Проверяем, не вышли ли за границы окна
+        // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬, Г­ГҐ ГўГ»ГёГ«ГЁ Г«ГЁ Г§Г  ГЈГ°Г Г­ГЁГ¶Г» Г®ГЄГ­Г 
         if (textY < y + 10.0f) break;
 
         renderText(state, buf, x + 10.0f, textY, 0.7f, 1.0f, 1.0f, 1.0f, 1.0f);
-        textY -= 25.0f; // Смещаем вниз
+        textY -= 25.0f; // Г‘Г¬ГҐГ№Г ГҐГ¬ ГўГ­ГЁГ§
         current = current->next;
         count++;
     }
 
-    // 7. Восстанавливаем матрицы
+    // 7. Г‚Г®Г±Г±ГІГ Г­Г ГўГ«ГЁГўГ ГҐГ¬ Г¬Г ГІГ°ГЁГ¶Г»
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
@@ -1333,9 +1333,9 @@ void drawMoveLog(AppState* state) {
 }
 
 
-// Подсказка в правом верхнем углу о помощи
+// ГЏГ®Г¤Г±ГЄГ Г§ГЄГ  Гў ГЇГ°Г ГўГ®Г¬ ГўГҐГ°ГµГ­ГҐГ¬ ГіГЈГ«Гі Г® ГЇГ®Г¬Г®Г№ГЁ
 void drawHelpHint(AppState* state, int width, int height) {
-    // Сохраняем текущую матрицу проекции
+    // Г‘Г®ГµГ°Г Г­ГїГҐГ¬ ГІГҐГЄГіГ№ГіГѕ Г¬Г ГІГ°ГЁГ¶Гі ГЇГ°Г®ГҐГЄГ¶ГЁГЁ
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
@@ -1345,13 +1345,13 @@ void drawHelpHint(AppState* state, int width, int height) {
     glPushMatrix();
     glLoadIdentity();
 
-    // Размеры и позиция блока подсказки
+    // ГђГ Г§Г¬ГҐГ°Г» ГЁ ГЇГ®Г§ГЁГ¶ГЁГї ГЎГ«Г®ГЄГ  ГЇГ®Г¤Г±ГЄГ Г§ГЄГЁ
     float hintWidth = 200;
     float hintHeight = 50;
     float hintX = width - hintWidth - 20;
     float hintY = height - hintHeight - 20;
 
-    // Рисуем полупрозрачный фон
+    // ГђГЁГ±ГіГҐГ¬ ГЇГ®Г«ГіГЇГ°Г®Г§Г°Г Г·Г­Г»Г© ГґГ®Г­
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glColor4f(0.1f, 0.1f, 0.2f, 0.7f);
@@ -1363,7 +1363,7 @@ void drawHelpHint(AppState* state, int width, int height) {
     glEnd();
     glDisable(GL_BLEND);
 
-    // Рамка
+    // ГђГ Г¬ГЄГ 
     glColor3f(1.0f, 1.0f, 1.0f);
     glLineWidth(1.0f);
     glBegin(GL_LINE_LOOP);
@@ -1373,29 +1373,29 @@ void drawHelpHint(AppState* state, int width, int height) {
     glVertex2f(hintX, hintY + hintHeight);
     glEnd();
 
-    // Текст подсказки
+    // Г’ГҐГЄГ±ГІ ГЇГ®Г¤Г±ГЄГ Г§ГЄГЁ
     renderText(state, "Press 'H' for Help", hintX + 10, hintY + 25, 0.6f, 1.0f, 1.0f, 1.0f, 1.0f);
 
-    // Восстанавливаем матрицы
+    // Г‚Г®Г±Г±ГІГ Г­Г ГўГ«ГЁГўГ ГҐГ¬ Г¬Г ГІГ°ГЁГ¶Г»
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
     glPopMatrix();
 }
 
-// Отрисовка клеточного поля
+// ГЋГІГ°ГЁГ±Г®ГўГЄГ  ГЄГ«ГҐГІГ®Г·Г­Г®ГЈГ® ГЇГ®Г«Гї
 void drawGrid(float visibleLeft, float visibleRight,
     float visibleBottom, float visibleTop, float zoom, int fieldSize) {
-    // Размер клетки в мировых координатах
+    // ГђГ Г§Г¬ГҐГ° ГЄГ«ГҐГІГЄГЁ Гў Г¬ГЁГ°Г®ГўГ»Гµ ГЄГ®Г®Г°Г¤ГЁГ­Г ГІГ Гµ
     float cellSize = 2.0f / (10.0f * zoom);
 
-    // Определяем границы видимой области в клетках
+    // ГЋГЇГ°ГҐГ¤ГҐГ«ГїГҐГ¬ ГЈГ°Г Г­ГЁГ¶Г» ГўГЁГ¤ГЁГ¬Г®Г© Г®ГЎГ«Г Г±ГІГЁ Гў ГЄГ«ГҐГІГЄГ Гµ
     int startX = (int)(visibleLeft / cellSize) - 1;
     int endX = (int)(visibleRight / cellSize) + 1;
     int startY = (int)(visibleBottom / cellSize) - 1;
     int endY = (int)(visibleTop / cellSize) + 1;
 
-    // Если поле ограничено, корректируем границы отрисовки
+    // Г…Г±Г«ГЁ ГЇГ®Г«ГҐ Г®ГЈГ°Г Г­ГЁГ·ГҐГ­Г®, ГЄГ®Г°Г°ГҐГЄГІГЁГ°ГіГҐГ¬ ГЈГ°Г Г­ГЁГ¶Г» Г®ГІГ°ГЁГ±Г®ГўГЄГЁ
     if (fieldSize > 0) {
         startX = (startX < -fieldSize / 2) ? -fieldSize / 2 : startX;
         endX = (endX > fieldSize / 2) ? fieldSize / 2 : endX;
@@ -1403,15 +1403,15 @@ void drawGrid(float visibleLeft, float visibleRight,
         endY = (endY > fieldSize / 2) ? fieldSize / 2 : endY;
     }
 
-    // Отрисовываем только видимые клетки
+    // ГЋГІГ°ГЁГ±Г®ГўГ»ГўГ ГҐГ¬ ГІГ®Г«ГјГЄГ® ГўГЁГ¤ГЁГ¬Г»ГҐ ГЄГ«ГҐГІГЄГЁ
     for (int x = startX; x <= endX; ++x) {
         for (int y = startY; y <= endY; ++y) {
-            // Если поле ограничено, пропускаем клетки за границами
+            // Г…Г±Г«ГЁ ГЇГ®Г«ГҐ Г®ГЈГ°Г Г­ГЁГ·ГҐГ­Г®, ГЇГ°Г®ГЇГіГ±ГЄГ ГҐГ¬ ГЄГ«ГҐГІГЄГЁ Г§Г  ГЈГ°Г Г­ГЁГ¶Г Г¬ГЁ
             if (fieldSize > 0 && (abs(x) > fieldSize / 2 || abs(y) > fieldSize / 2)) {
                 continue;
             }
 
-            // Вычисляем координаты углов клетки
+            // Г‚Г»Г·ГЁГ±Г«ГїГҐГ¬ ГЄГ®Г®Г°Г¤ГЁГ­Г ГІГ» ГіГЈГ«Г®Гў ГЄГ«ГҐГІГЄГЁ
             float x1 = x * cellSize;
             float y1 = y * cellSize;
             float x2 = x1 + cellSize;
@@ -1428,16 +1428,16 @@ void drawGrid(float visibleLeft, float visibleRight,
     }
 }
 
-// Отрисовка подсветки выбранной клетки
+// ГЋГІГ°ГЁГ±Г®ГўГЄГ  ГЇГ®Г¤Г±ГўГҐГІГЄГЁ ГўГ»ГЎГ°Г Г­Г­Г®Г© ГЄГ«ГҐГІГЄГЁ
 void drawSelectedCell(int x, int y, float cellSize) {
-    // Вычисляем координаты углов выбранной клетки
+    // Г‚Г»Г·ГЁГ±Г«ГїГҐГ¬ ГЄГ®Г®Г°Г¤ГЁГ­Г ГІГ» ГіГЈГ«Г®Гў ГўГ»ГЎГ°Г Г­Г­Г®Г© ГЄГ«ГҐГІГЄГЁ
     float x1 = x * cellSize;
     float y1 = y * cellSize;
     float x2 = x1 + cellSize;
     float y2 = y1 + cellSize;
     glColor3f(1.0, 1.0, 0.0);
 
-    // Отрисовываем подсветку
+    // ГЋГІГ°ГЁГ±Г®ГўГ»ГўГ ГҐГ¬ ГЇГ®Г¤Г±ГўГҐГІГЄГі
     glLineWidth(5.0);
     glBegin(GL_LINE_LOOP);
     glVertex2f(x1, y1);
@@ -1447,7 +1447,7 @@ void drawSelectedCell(int x, int y, float cellSize) {
     glEnd();
 }
 
-// Отрисовка крестика в клетке
+// ГЋГІГ°ГЁГ±Г®ГўГЄГ  ГЄГ°ГҐГ±ГІГЁГЄГ  Гў ГЄГ«ГҐГІГЄГҐ
 void drawCross(float x1, float y1, float x2, float y2) {
     glColor3f(1.0, 0.0, 0.0);
     glLineWidth(10.0);
@@ -1459,32 +1459,32 @@ void drawCross(float x1, float y1, float x2, float y2) {
     glEnd();
 }
 
-// Отрисовка нолика в клетке
+// ГЋГІГ°ГЁГ±Г®ГўГЄГ  Г­Г®Г«ГЁГЄГ  Гў ГЄГ«ГҐГІГЄГҐ
 void drawCircle(float x1, float y1, float x2, float y2) {
-    glColor3f(0.0, 0.0, 1.0);  // Синий цвет для нолика
+    glColor3f(0.0, 0.0, 1.0);  // Г‘ГЁГ­ГЁГ© Г¶ГўГҐГІ Г¤Г«Гї Г­Г®Г«ГЁГЄГ 
 
     float centerX = (x1 + x2) / 2.0f;
     float centerY = (y1 + y2) / 2.0f;
-    float outerRadius = (x2 - x1) / 2.5f;  // Внешний радиус
-    float innerRadius = outerRadius * 0.7f; // Внутренний радиус для толщины линии
+    float outerRadius = (x2 - x1) / 2.5f;  // Г‚Г­ГҐГёГ­ГЁГ© Г°Г Г¤ГЁГіГ±
+    float innerRadius = outerRadius * 0.7f; // Г‚Г­ГіГІГ°ГҐГ­Г­ГЁГ© Г°Г Г¤ГЁГіГ± Г¤Г«Гї ГІГ®Г«Г№ГЁГ­Г» Г«ГЁГ­ГЁГЁ
 
-    // Рисуем нолик с помощью треугольников
+    // ГђГЁГ±ГіГҐГ¬ Г­Г®Г«ГЁГЄ Г± ГЇГ®Г¬Г®Г№ГјГѕ ГІГ°ГҐГіГЈГ®Г«ГјГ­ГЁГЄГ®Гў
     glBegin(GL_TRIANGLE_STRIP);
-    for (int i = 0; i <= 360; i += 5) {  // Шаг 5 градусов можно уменьшить для большей гладкости
+    for (int i = 0; i <= 360; i += 5) {  // ГГ ГЈ 5 ГЈГ°Г Г¤ГіГ±Г®Гў Г¬Г®Г¦Г­Г® ГіГ¬ГҐГ­ГјГёГЁГІГј Г¤Г«Гї ГЎГ®Г«ГјГёГҐГ© ГЈГ«Г Г¤ГЄГ®Г±ГІГЁ
         float angle = i * 3.14159f / 180.0f;
 
-        // Внешняя точка
+        // Г‚Г­ГҐГёГ­ГїГї ГІГ®Г·ГЄГ 
         glVertex2f((GLfloat)centerX + (GLfloat)outerRadius * (GLfloat)cos(angle),
             (GLfloat)centerY + (GLfloat)outerRadius * (GLfloat)sin(angle));
 
-        // Внутренняя точка
+        // Г‚Г­ГіГІГ°ГҐГ­Г­ГїГї ГІГ®Г·ГЄГ 
         glVertex2f((GLfloat)centerX + (GLfloat)innerRadius * (GLfloat)cos(angle),
             (GLfloat)centerY + (GLfloat)innerRadius * (GLfloat)sin(angle));
     }
     glEnd();
 }
 
-// Обработка зума колесом мыши
+// ГЋГЎГ°Г ГЎГ®ГІГЄГ  Г§ГіГ¬Г  ГЄГ®Г«ГҐГ±Г®Г¬ Г¬Г»ГёГЁ
 void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
     AppState* state = (AppState*)glfwGetWindowUserPointer(window);
     if (xoffset) {
@@ -1498,13 +1498,13 @@ void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
     else if (yoffset < 0)
         state->camera.zoom /= 1.1f;
 
-    // Ограничение зума
+    // ГЋГЈГ°Г Г­ГЁГ·ГҐГ­ГЁГҐ Г§ГіГ¬Г 
     if (state->camera.zoom < 0.4f) state->camera.zoom = 0.4f;
     if (state->camera.zoom > 3.0f) state->camera.zoom = 3.0f;
 }
 
 
-// Обработка нажатий клавиш мыши
+// ГЋГЎГ°Г ГЎГ®ГІГЄГ  Г­Г Г¦Г ГІГЁГ© ГЄГ«Г ГўГЁГё Г¬Г»ГёГЁ
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     AppState* state = (AppState*)glfwGetWindowUserPointer(window);
 
@@ -1514,7 +1514,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     }
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
         if (state->currentState == MENU_MAIN) {
-            // Обработка кликов и наведения в меню
+            // ГЋГЎГ°Г ГЎГ®ГІГЄГ  ГЄГ«ГЁГЄГ®Гў ГЁ Г­Г ГўГҐГ¤ГҐГ­ГЁГї Гў Г¬ГҐГ­Гѕ
             double xpos, ypos;
             glfwGetCursorPos(window, &xpos, &ypos);
 
@@ -1524,14 +1524,14 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 int kostil = 0;
                 kostil++;
             }
-            // Преобразуем координаты мыши в координаты экрана (1240x1240)
-            ypos = height - ypos; // Инвертируем Y
+            // ГЏГ°ГҐГ®ГЎГ°Г Г§ГіГҐГ¬ ГЄГ®Г®Г°Г¤ГЁГ­Г ГІГ» Г¬Г»ГёГЁ Гў ГЄГ®Г®Г°Г¤ГЁГ­Г ГІГ» ГЅГЄГ°Г Г­Г  (1240x1240)
+            ypos = height - ypos; // Г€Г­ГўГҐГ°ГІГЁГ°ГіГҐГ¬ Y
             float menuX = ((float)xpos / (float)width) * 1240.0f;
             float menuY = ((float)ypos / (float)height) * 1240.0f;
 
-            // Проверяем, какая кнопка под курсором
-            if (menuX >= 500 && menuX <= 740) { // Ширина кнопки 240
-                if (menuY >= 800 && menuY <= 880) { // New Game (первая кнопка)
+            // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬, ГЄГ ГЄГ Гї ГЄГ­Г®ГЇГЄГ  ГЇГ®Г¤ ГЄГіГ°Г±Г®Г°Г®Г¬
+            if (menuX >= 500 && menuX <= 740) { // ГГЁГ°ГЁГ­Г  ГЄГ­Г®ГЇГЄГЁ 240
+                if (menuY >= 800 && menuY <= 880) { // New Game (ГЇГҐГ°ГўГ Гї ГЄГ­Г®ГЇГЄГ )
                     state->menuSelectedItem = 0;
                     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
                         cleanupGrid(&state->grid);
@@ -1543,9 +1543,9 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         state->gameResult.rawResult = 0;
                         int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
                         
-                        // Если бот ходит первым, делаем его ход сразу
+                        // Г…Г±Г«ГЁ ГЎГ®ГІ ГµГ®Г¤ГЁГІ ГЇГҐГ°ГўГ»Г¬, Г¤ГҐГ«Г ГҐГ¬ ГҐГЈГ® ГµГ®Г¤ Г±Г°Г Г§Гі
                         if (state->settings.firstMove == FIRST_MOVE_AI) {
-                            // Специальная логика для первого хода бота
+                            // Г‘ГЇГҐГ¶ГЁГ Г«ГјГ­Г Гї Г«Г®ГЈГЁГЄГ  Г¤Г«Гї ГЇГҐГ°ГўГ®ГЈГ® ГµГ®Г¤Г  ГЎГ®ГІГ 
                                 addCell(&state->grid, 0, 0);
                                 state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
                                 logMove(&state->logger, 0, 0, MOVE_AI);
@@ -1553,7 +1553,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
                     }
                 }
-                else if (menuY >= 600 && menuY <= 680) { // Load Game (вторая кнопка)
+                else if (menuY >= 600 && menuY <= 680) { // Load Game (ГўГІГ®Г°Г Гї ГЄГ­Г®ГЇГЄГ )
                     state->menuSelectedItem = 1;
                     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
                         if (loadGame(&state->grid, &state->settings)) {
@@ -1579,13 +1579,13 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         }
                     }
                 }
-                else if (menuY >= 400 && menuY <= 480) { // Settings (третья кнопка)
+                else if (menuY >= 400 && menuY <= 480) { // Settings (ГІГ°ГҐГІГјГї ГЄГ­Г®ГЇГЄГ )
                     state->menuSelectedItem = 2;
                     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
                         state->currentState = MENU_SETTINGS;
                     }
                 }
-                else if (menuY >= 200 && menuY <= 280) { // About (четвертая кнопка)
+                else if (menuY >= 200 && menuY <= 280) { // About (Г·ГҐГІГўГҐГ°ГІГ Гї ГЄГ­Г®ГЇГЄГ )
                     state->menuSelectedItem = 3;
                     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
                         state->currentState = MENU_ABOUT;
@@ -1604,7 +1604,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     
 }
 
-// Обработка перемещения курсора
+// ГЋГЎГ°Г ГЎГ®ГІГЄГ  ГЇГҐГ°ГҐГ¬ГҐГ№ГҐГ­ГЁГї ГЄГіГ°Г±Г®Г°Г 
 void cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
     AppState* state = (AppState*)glfwGetWindowUserPointer(window);
 
@@ -1619,35 +1619,35 @@ void cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
         state->mouse.lastY = ypos;
     }
     else if (state->currentState == MENU_MAIN) {
-        // Обработка наведения в главном меню
+        // ГЋГЎГ°Г ГЎГ®ГІГЄГ  Г­Г ГўГҐГ¤ГҐГ­ГЁГї Гў ГЈГ«Г ГўГ­Г®Г¬ Г¬ГҐГ­Гѕ
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
-        ypos = height - ypos; // Инвертируем Y
+        ypos = height - ypos; // Г€Г­ГўГҐГ°ГІГЁГ°ГіГҐГ¬ Y
         float menuX = ((float)xpos / (float)width) * 1240.0f;
         float menuY = ((float)ypos / (float)height) * 1240.0f;
 
-        // Проверяем, какая кнопка под курсором
-        if (menuX >= 500 && menuX <= 740) { // Ширина кнопки 240
-            if (menuY >= 800 && menuY <= 880) { // New Game (первая кнопка)
+        // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬, ГЄГ ГЄГ Гї ГЄГ­Г®ГЇГЄГ  ГЇГ®Г¤ ГЄГіГ°Г±Г®Г°Г®Г¬
+        if (menuX >= 500 && menuX <= 740) { // ГГЁГ°ГЁГ­Г  ГЄГ­Г®ГЇГЄГЁ 240
+            if (menuY >= 800 && menuY <= 880) { // New Game (ГЇГҐГ°ГўГ Гї ГЄГ­Г®ГЇГЄГ )
                 
                 state->menuSelectedItem = 0;
 
             }
-            else if (menuY >= 600 && menuY <= 680) { // Load Game (вторая кнопка)
+            else if (menuY >= 600 && menuY <= 680) { // Load Game (ГўГІГ®Г°Г Гї ГЄГ­Г®ГЇГЄГ )
                 state->menuSelectedItem = 1;
             }
-            else if (menuY >= 400 && menuY <= 480) { // Settings (третья кнопка)
+            else if (menuY >= 400 && menuY <= 480) { // Settings (ГІГ°ГҐГІГјГї ГЄГ­Г®ГЇГЄГ )
                 state->menuSelectedItem = 2;
             }
-            else if (menuY >= 200 && menuY <= 280) { // About (четвертая кнопка)
+            else if (menuY >= 200 && menuY <= 280) { // About (Г·ГҐГІГўГҐГ°ГІГ Гї ГЄГ­Г®ГЇГЄГ )
                 state->menuSelectedItem = 3;
             }
         }
     }
 }
-// Проверка ничьи
+// ГЏГ°Г®ГўГҐГ°ГЄГ  Г­ГЁГ·ГјГЁ
 int checkForDraw(AppState* state) {
-    if (state->settings.fieldSize <= 0) return 0; // Бесконечное поле - ничья невозможна
+    if (state->settings.fieldSize <= 0) return 0; // ГЃГҐГ±ГЄГ®Г­ГҐГ·Г­Г®ГҐ ГЇГ®Г«ГҐ - Г­ГЁГ·ГјГї Г­ГҐГўГ®Г§Г¬Г®Г¦Г­Г 
 
     for (int x = -state->settings.fieldSize / 2; x <= state->settings.fieldSize / 2; x++) {
         for (int y = -state->settings.fieldSize / 2; y <= state->settings.fieldSize / 2; y++) {
@@ -1659,14 +1659,14 @@ int checkForDraw(AppState* state) {
                 }
             }
             if (cellEmpty) {
-                return 0; // Нашли пустую клетку - ничьи нет
+                return 0; // ГЌГ ГёГ«ГЁ ГЇГіГ±ГІГіГѕ ГЄГ«ГҐГІГЄГі - Г­ГЁГ·ГјГЁ Г­ГҐГІ
             }
         }
     }
-    return 1; // Все клетки заполнены - ничья
+    return 1; // Г‚Г±ГҐ ГЄГ«ГҐГІГЄГЁ Г§Г ГЇГ®Г«Г­ГҐГ­Г» - Г­ГЁГ·ГјГї
 }
 
-// Обработка нажатия клавиш
+// ГЋГЎГ°Г ГЎГ®ГІГЄГ  Г­Г Г¦Г ГІГЁГї ГЄГ«Г ГўГЁГё
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (action != GLFW_PRESS && action != GLFW_REPEAT) return;
 
@@ -1680,7 +1680,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     if (state->currentState == MENU_MAIN) {
         switch (key) {
         case GLFW_KEY_UP:
-            state->menuSelectedItem = (state->menuSelectedItem - 1 + 4) % 4; // По желанию в будущем замеить значения menuSelectedItem на enum
+            state->menuSelectedItem = (state->menuSelectedItem - 1 + 4) % 4; // ГЏГ® Г¦ГҐГ«Г Г­ГЁГѕ Гў ГЎГіГ¤ГіГ№ГҐГ¬ Г§Г Г¬ГҐГЁГІГј Г§Г­Г Г·ГҐГ­ГЁГї menuSelectedItem Г­Г  enum
             break;
         case GLFW_KEY_DOWN:
             state->menuSelectedItem = (state->menuSelectedItem + 1) % 4;
@@ -1696,22 +1696,22 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
                 state->camera.zoom = 1.0f;
                 state->camera.offsetX = 0.0f;
                 state->camera.offsetY = 0.0f;
-                // Используем настройки из defaultSettings
+                // Г€Г±ГЇГ®Г«ГјГ§ГіГҐГ¬ Г­Г Г±ГІГ°Г®Г©ГЄГЁ ГЁГ§ defaultSettings
                 state->settings = state->defaultSettings;
                 state->currentState = MENU_GAME;
                 state->gameResult.rawResult = 0;
 
-                // Если бот ходит первым, делаем его ход сразу
+                // Г…Г±Г«ГЁ ГЎГ®ГІ ГµГ®Г¤ГЁГІ ГЇГҐГ°ГўГ»Г¬, Г¤ГҐГ«Г ГҐГ¬ ГҐГЈГ® ГµГ®Г¤ Г±Г°Г Г§Гі
                 if (state->settings.firstMove == FIRST_MOVE_AI) {
-                    // Специальная логика для первого хода бота
+                    // Г‘ГЇГҐГ¶ГЁГ Г«ГјГ­Г Гї Г«Г®ГЈГЁГЄГ  Г¤Г«Гї ГЇГҐГ°ГўГ®ГЈГ® ГµГ®Г¤Г  ГЎГ®ГІГ 
                     if (state->settings.fieldSize > 0) {
-                        // Для ограниченного поля - ставим в центр
+                        // Г„Г«Гї Г®ГЈГ°Г Г­ГЁГ·ГҐГ­Г­Г®ГЈГ® ГЇГ®Г«Гї - Г±ГІГ ГўГЁГ¬ Гў Г¶ГҐГ­ГІГ°
                         addCell(&state->grid, 0, 0);
                         state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
                         logMove(&state->logger, 0, 0, MOVE_AI);
                     }
                     else {
-                        // Для бесконечного поля - ставим в (0,0)
+                        // Г„Г«Гї ГЎГҐГ±ГЄГ®Г­ГҐГ·Г­Г®ГЈГ® ГЇГ®Г«Гї - Г±ГІГ ГўГЁГ¬ Гў (0,0)
                         addCell(&state->grid, 0, 0);
                         state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
                         logMove(&state->logger, 0, 0, MOVE_AI);
@@ -1726,7 +1726,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
                     state->camera.zoom = 1.0f;
                     state->camera.offsetX = 0.0f;
                     state->camera.offsetY = 0.0f;
-                    state->gameResult.rawResult = 0; // Сбрасываем состояние игры
+                    state->gameResult.rawResult = 0; // Г‘ГЎГ°Г Г±Г»ГўГ ГҐГ¬ Г±Г®Г±ГІГ®ГїГ­ГЁГҐ ГЁГЈГ°Г»
                     int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
                     aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
 
@@ -1748,7 +1748,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         case GLFW_KEY_ESCAPE:
             if (state->currentState == MENU_GAME) {
                 state->currentState = MENU_MAIN;
-                state->gameResult.rawResult = 0; // Сбрасываем состояние игры при выходе
+                state->gameResult.rawResult = 0; // Г‘ГЎГ°Г Г±Г»ГўГ ГҐГ¬ Г±Г®Г±ГІГ®ГїГ­ГЁГҐ ГЁГЈГ°Г» ГЇГ°ГЁ ГўГ»ГµГ®Г¤ГҐ
             }
             else {
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
@@ -1803,13 +1803,13 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             break;
         }
         case GLFW_KEY_SPACE: {
-            if (state->gameResult.rawResult != 0) break; // Игра уже завершена
+            if (state->gameResult.rawResult != 0) break; // Г€ГЈГ°Г  ГіГ¦ГҐ Г§Г ГўГҐГ°ГёГҐГ­Г 
 
-            // Определяем символ игрока и бота в зависимости от того, кто ходит первым
+            // ГЋГЇГ°ГҐГ¤ГҐГ«ГїГҐГ¬ Г±ГЁГ¬ГўГ®Г« ГЁГЈГ°Г®ГЄГ  ГЁ ГЎГ®ГІГ  Гў Г§Г ГўГЁГ±ГЁГ¬Г®Г±ГІГЁ Г®ГІ ГІГ®ГЈГ®, ГЄГІГ® ГµГ®Г¤ГЁГІ ГЇГҐГ°ГўГ»Г¬
             int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
             aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
 
-            // Проверяем, не занята ли клетка
+            // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬, Г­ГҐ Г§Г Г­ГїГІГ  Г«ГЁ ГЄГ«ГҐГІГЄГ 
             int cellOccupied = 0;
             for (int i = 0; i < state->grid.size; i++) {
                 if (state->grid.cells[i].x == state->selectedCellX &&
@@ -1821,7 +1821,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             }
             if (cellOccupied) break;
 
-            // Делаем ход игрока
+            // Г„ГҐГ«Г ГҐГ¬ ГµГ®Г¤ ГЁГЈГ°Г®ГЄГ 
             int found = 0;
             for (int i = 0; i < state->grid.size; i++) {
                 if (state->grid.cells[i].x == state->selectedCellX &&
@@ -1837,21 +1837,21 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             }
             logMove(&state->logger, state->selectedCellX, state->selectedCellY, MOVE_PLAYER);
 
-            // Проверка победы после хода
+            // ГЏГ°Г®ГўГҐГ°ГЄГ  ГЇГ®ГЎГҐГ¤Г» ГЇГ®Г±Г«ГҐ ГµГ®Г¤Г 
             if (checkWinCondition(state, playerSymbol, state->settings.winLineLength)) {
                 state->gameResult.isWin = 1;
                 break;
             }
 
-            // Проверка ничьи
+            // ГЏГ°Г®ГўГҐГ°ГЄГ  Г­ГЁГ·ГјГЁ
             if (checkForDraw(state)) {
                 state->gameResult.isDraw = 1;
                 break;
             }
 
-            // Ход бота (только если игра не завершена)
+            // Г•Г®Г¤ ГЎГ®ГІГ  (ГІГ®Г«ГјГЄГ® ГҐГ±Г«ГЁ ГЁГЈГ°Г  Г­ГҐ Г§Г ГўГҐГ°ГёГҐГ­Г )
             if (state->gameResult.rawResult == 0) {
-                // Определяем функцию для хода бота в зависимости от сложности
+                // ГЋГЇГ°ГҐГ¤ГҐГ«ГїГҐГ¬ ГґГіГ­ГЄГ¶ГЁГѕ Г¤Г«Гї ГµГ®Г¤Г  ГЎГ®ГІГ  Гў Г§Г ГўГЁГ±ГЁГ¬Г®Г±ГІГЁ Г®ГІ Г±Г«Г®Г¦Г­Г®Г±ГІГЁ
                 void (*aiMoveFunc)(AppState*) = NULL;
                 switch (state->settings.difficulty) {
                 case DIFFICULTY_EASY: aiMoveFunc = makeAIMoveEasy; break;
@@ -1863,11 +1863,11 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
                 if (aiMoveFunc) {
                     aiMoveFunc(state);
 
-                    // Проверка победы бота после его хода
+                    // ГЏГ°Г®ГўГҐГ°ГЄГ  ГЇГ®ГЎГҐГ¤Г» ГЎГ®ГІГ  ГЇГ®Г±Г«ГҐ ГҐГЈГ® ГµГ®Г¤Г 
                     if (checkWinCondition(state, aiSymbol, state->settings.winLineLength)) {
                         state->gameResult.isLose = 1;
                     }
-                    // Проверка ничьи
+                    // ГЏГ°Г®ГўГҐГ°ГЄГ  Г­ГЁГ·ГјГЁ
                     else if (checkForDraw(state)) {
                         state->gameResult.isDraw = 1;
                     }
@@ -1878,13 +1878,13 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         case GLFW_KEY_Q:
             if (mods & GLFW_MOD_ALT) {
                 saveGame(&state->grid, &state->settings);
-                state->saveNotificationTimer = 1.0; // Устанавливаем таймер на 2 секунды
+                state->saveNotificationTimer = 1.0; // Г“Г±ГІГ Г­Г ГўГ«ГЁГўГ ГҐГ¬ ГІГ Г©Г¬ГҐГ° Г­Г  2 Г±ГҐГЄГіГ­Г¤Г»
                 break;
             }
             break;
         case GLFW_KEY_ESCAPE:
             if (state->currentState == MENU_GAME) {
-                // Восстанавливаем настройки из defaultSettings
+                // Г‚Г®Г±Г±ГІГ Г­Г ГўГ«ГЁГўГ ГҐГ¬ Г­Г Г±ГІГ°Г®Г©ГЄГЁ ГЁГ§ defaultSettings
                 cleanupMoveLogger(&state->logger);
                 state->settings = state->defaultSettings;
                 state->currentState = MENU_MAIN;
@@ -1892,9 +1892,9 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             }
             break;
         case GLFW_KEY_H:
-            state->showHelp = !state->showHelp; // Переключаем отображение помощи
+            state->showHelp = !state->showHelp; // ГЏГҐГ°ГҐГЄГ«ГѕГ·Г ГҐГ¬ Г®ГІГ®ГЎГ°Г Г¦ГҐГ­ГЁГҐ ГЇГ®Г¬Г®Г№ГЁ
             break;
-        case GLFW_KEY_M:  // M - показать/скрыть лог
+        case GLFW_KEY_M:  // M - ГЇГ®ГЄГ Г§Г ГІГј/Г±ГЄГ°Г»ГІГј Г«Г®ГЈ
             state->showMoveLog = !state->showMoveLog;
             break;
 
@@ -1913,11 +1913,11 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
    
 }
 
-// Отрисовка победнго сообщения
+// ГЋГІГ°ГЁГ±Г®ГўГЄГ  ГЇГ®ГЎГҐГ¤Г­ГЈГ® Г±Г®Г®ГЎГ№ГҐГ­ГЁГї
 void drawWinLine(AppState* state, int width, int height) {
     if (state->gameResult.rawResult == 0) return;
 
-    // Сохраняем матрицы
+    // Г‘Г®ГµГ°Г Г­ГїГҐГ¬ Г¬Г ГІГ°ГЁГ¶Г»
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
@@ -1927,23 +1927,23 @@ void drawWinLine(AppState* state, int width, int height) {
     glPushMatrix();
     glLoadIdentity();
 
-    // Размеры и позиция уведомления
+    // ГђГ Г§Г¬ГҐГ°Г» ГЁ ГЇГ®Г§ГЁГ¶ГЁГї ГіГўГҐГ¤Г®Г¬Г«ГҐГ­ГЁГї
     float notifWidth = 400;
     float notifHeight = 100;
     float notifX = (width - notifWidth) / 2;
     float notifY = height - 150.0f;
 
-    // Рисуем полупрозрачный фон
+    // ГђГЁГ±ГіГҐГ¬ ГЇГ®Г«ГіГЇГ°Г®Г§Г°Г Г·Г­Г»Г© ГґГ®Г­
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    if (state->gameResult.isWin == 1) { // Победа
+    if (state->gameResult.isWin == 1) { // ГЏГ®ГЎГҐГ¤Г 
         glColor4f(0.1f, 0.5f, 0.1f, 0.9f);
     }
-    else if (state->gameResult.isLose == 1) { // Поражение
+    else if (state->gameResult.isLose == 1) { // ГЏГ®Г°Г Г¦ГҐГ­ГЁГҐ
         glColor4f(0.5f, 0.1f, 0.1f, 0.9f);
     }
-    else { // Ничья
+    else { // ГЌГЁГ·ГјГї
         glColor4f(0.3f, 0.3f, 0.3f, 0.9f);
     }
 
@@ -1954,7 +1954,7 @@ void drawWinLine(AppState* state, int width, int height) {
     glVertex2f(notifX, notifY + notifHeight);
     glEnd();
 
-    // Рамка
+    // ГђГ Г¬ГЄГ 
     glColor4f(0.8f, 0.8f, 0.0f, 0.9f);
     glLineWidth(3.0f);
     glBegin(GL_LINE_LOOP);
@@ -1964,7 +1964,7 @@ void drawWinLine(AppState* state, int width, int height) {
     glVertex2f(notifX, notifY + notifHeight);
     glEnd();
 
-    // Текст уведомления
+    // Г’ГҐГЄГ±ГІ ГіГўГҐГ¤Г®Г¬Г«ГҐГ­ГЁГї
     if (state->gameResult.isWin == 1) {
         renderText(state, "You Win! Press ESC to return to menu",
             notifX + 20, notifY + 60,
@@ -1981,17 +1981,17 @@ void drawWinLine(AppState* state, int width, int height) {
             0.7f, 1.0f, 1.0f, 1.0f, 1.0f);
     }
 
-    // Восстанавливаем матрицы
+    // Г‚Г®Г±Г±ГІГ Г­Г ГўГ«ГЁГўГ ГҐГ¬ Г¬Г ГІГ°ГЁГ¶Г»
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
     glPopMatrix();
 }
 
-// Отрисовка победной линии
+// ГЋГІГ°ГЁГ±Г®ГўГЄГ  ГЇГ®ГЎГҐГ¤Г­Г®Г© Г«ГЁГ­ГЁГЁ
 void drawWinningLine(AppState* state) {
 
-    // Определяем, кто выиграл
+    // ГЋГЇГ°ГҐГ¤ГҐГ«ГїГҐГ¬, ГЄГІГ® ГўГ»ГЁГЈГ°Г Г«
     int winnerSymbol = 0;
     if (state->gameResult.isWin) {
         winnerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
@@ -2000,23 +2000,23 @@ void drawWinningLine(AppState* state) {
         winnerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
     }
 
-    // Устанавливаем цвет в зависимости от того, кто выиграл
-    if (winnerSymbol == 1) { // Крестик
+    // Г“Г±ГІГ Г­Г ГўГ«ГЁГўГ ГҐГ¬ Г¶ГўГҐГІ Гў Г§Г ГўГЁГ±ГЁГ¬Г®Г±ГІГЁ Г®ГІ ГІГ®ГЈГ®, ГЄГІГ® ГўГ»ГЁГЈГ°Г Г«
+    if (winnerSymbol == 1) { // ГЉГ°ГҐГ±ГІГЁГЄ
         int isPlayer = (state->settings.firstMove == FIRST_MOVE_PLAYER);
         if (isPlayer) {
-            glColor3f(1.0f, 0.0f, 0.0f); // Красный для игрока
+            glColor3f(1.0f, 0.0f, 0.0f); // ГЉГ°Г Г±Г­Г»Г© Г¤Г«Гї ГЁГЈГ°Г®ГЄГ 
         }
         else {
-            glColor3f(0.5f, 0.0f, 0.5f); // Фиолетовый для бота
+            glColor3f(0.5f, 0.0f, 0.5f); // Г”ГЁГ®Г«ГҐГІГ®ГўГ»Г© Г¤Г«Гї ГЎГ®ГІГ 
         }
     }
-    else { // Нолик
+    else { // ГЌГ®Г«ГЁГЄ
         int isPlayer = (state->settings.firstMove != FIRST_MOVE_PLAYER);
         if (isPlayer) {
-            glColor3f(0.0f, 0.0f, 1.0f); // Синий для игрока
+            glColor3f(0.0f, 0.0f, 1.0f); // Г‘ГЁГ­ГЁГ© Г¤Г«Гї ГЁГЈГ°Г®ГЄГ 
         }
         else {
-            glColor3f(0.0f, 1.0f, 1.0f); // Голубой для бота
+            glColor3f(0.0f, 1.0f, 1.0f); // ГѓГ®Г«ГіГЎГ®Г© Г¤Г«Гї ГЎГ®ГІГ 
         }
     }
 
@@ -2024,8 +2024,8 @@ void drawWinningLine(AppState* state) {
     glPushMatrix();
     glLoadIdentity();
 
-    // Рисуем линию между центрами клеток
-    glColor3f(1.0f, 1.0f, 0.0f); // Желтый цвет
+    // ГђГЁГ±ГіГҐГ¬ Г«ГЁГ­ГЁГѕ Г¬ГҐГ¦Г¤Гі Г¶ГҐГ­ГІГ°Г Г¬ГЁ ГЄГ«ГҐГІГ®ГЄ
+    glColor3f(1.0f, 1.0f, 0.0f); // Г†ГҐГ«ГІГ»Г© Г¶ГўГҐГІ
     glLineWidth(5.0f);
     glBegin(GL_LINES);
 
@@ -2048,10 +2048,10 @@ void drawWinningLine(AppState* state) {
 
 
 
-                                                    /*                         АЛГОРИТМЫ                                  */
+                                                    /*                         ГЂГ‹ГѓГЋГђГ€Г’ГЊГ›                                  */
 
 
-// Проверка, есть ли выигрышная линия из symbol заданной длины
+// ГЏГ°Г®ГўГҐГ°ГЄГ , ГҐГ±ГІГј Г«ГЁ ГўГ»ГЁГЈГ°Г»ГёГ­Г Гї Г«ГЁГ­ГЁГї ГЁГ§ symbol Г§Г Г¤Г Г­Г­Г®Г© Г¤Г«ГЁГ­Г»
 int checkWinCondition(AppState* state, int symbol, int winLength) {
     for (int i = 0; i < state->grid.size; i++) {
         if (state->grid.cells[i].symbol != symbol) continue;
@@ -2068,7 +2068,7 @@ int checkWinCondition(AppState* state, int symbol, int winLength) {
             int startX = x, startY = y;
             int endX = x, endY = y;
 
-            // Проверяем в одном направлении
+            // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ Гў Г®Г¤Г­Г®Г¬ Г­Г ГЇГ°Г ГўГ«ГҐГ­ГЁГЁ
             for (int step = 1; step < winLength; step++) {
                 int found = 0;
                 for (int j = 0; j < state->grid.size; j++) {
@@ -2085,7 +2085,7 @@ int checkWinCondition(AppState* state, int symbol, int winLength) {
                 count++;
             }
 
-            // Проверяем в противоположном направлении
+            // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ Гў ГЇГ°Г®ГІГЁГўГ®ГЇГ®Г«Г®Г¦Г­Г®Г¬ Г­Г ГЇГ°Г ГўГ«ГҐГ­ГЁГЁ
             for (int step = 1; step < winLength; step++) {
                 int found = 0;
                 for (int j = 0; j < state->grid.size; j++) {
@@ -2116,7 +2116,7 @@ int checkWinCondition(AppState* state, int symbol, int winLength) {
 
 
 
-// Функция для хода бота (легкий уровень), условно рандом в радиусе длины победной линии
+// Г”ГіГ­ГЄГ¶ГЁГї Г¤Г«Гї ГµГ®Г¤Г  ГЎГ®ГІГ  (Г«ГҐГЈГЄГЁГ© ГіГ°Г®ГўГҐГ­Гј), ГіГ±Г«Г®ГўГ­Г® Г°Г Г­Г¤Г®Г¬ Гў Г°Г Г¤ГЁГіГ±ГҐ Г¤Г«ГЁГ­Г» ГЇГ®ГЎГҐГ¤Г­Г®Г© Г«ГЁГ­ГЁГЁ
 void makeAIMoveEasy(AppState* state) {
     
     int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
@@ -2129,7 +2129,7 @@ void makeAIMoveEasy(AppState* state) {
     }
 
 
-    // Собираем все игрока
+    // Г‘Г®ГЎГЁГ°Г ГҐГ¬ ГўГ±ГҐ ГЁГЈГ°Г®ГЄГ 
     int crossCount = 0;
     for (int i = 0; i < state->grid.size; i++) {
         if (state->grid.cells[i].symbol == playerSymbol) crossCount++;
@@ -2137,7 +2137,7 @@ void makeAIMoveEasy(AppState* state) {
 
     
 
-    // Выбираем случайный
+    // Г‚Г»ГЎГЁГ°Г ГҐГ¬ Г±Г«ГіГ·Г Г©Г­Г»Г©
     int randomCrossIndex = rand() % crossCount;
     int crossFound = 0;
     int targetX = 0, targetY = 0;
@@ -2153,22 +2153,22 @@ void makeAIMoveEasy(AppState* state) {
         }
     }
 
-    // Пытаемся поставить рядом с выбранным крестиком
+    // ГЏГ»ГІГ ГҐГ¬Г±Гї ГЇГ®Г±ГІГ ГўГЁГІГј Г°ГїГ¤Г®Г¬ Г± ГўГ»ГЎГ°Г Г­Г­Г»Г¬ ГЄГ°ГҐГ±ГІГЁГЄГ®Г¬
     int attempts = 0;
     const int maxAttempts = state->settings.winLineLength;
 
     while (attempts < maxAttempts) {
-        // Выбираем случайное направление и расстояние (не больше winLineLength)
+        // Г‚Г»ГЎГЁГ°Г ГҐГ¬ Г±Г«ГіГ·Г Г©Г­Г®ГҐ Г­Г ГЇГ°Г ГўГ«ГҐГ­ГЁГҐ ГЁ Г°Г Г±Г±ГІГ®ГїГ­ГЁГҐ (Г­ГҐ ГЎГ®Г«ГјГёГҐ winLineLength)
         int dx = (rand() % (2 * state->settings.winLineLength + 1)) - state->settings.winLineLength;
         int dy = (rand() % (2 * state->settings.winLineLength + 1)) - state->settings.winLineLength;
 
-        // Убедимся, что мы не остались на месте
+        // Г“ГЎГҐГ¤ГЁГ¬Г±Гї, Г·ГІГ® Г¬Г» Г­ГҐ Г®Г±ГІГ Г«ГЁГ±Гј Г­Г  Г¬ГҐГ±ГІГҐ
         if (dx == 0 && dy == 0) continue;
 
         int newX = targetX + dx;
         int newY = targetY + dy;
 
-        // Проверяем, что клетка свободна и в пределах поля (если поле ограничено)
+        // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬, Г·ГІГ® ГЄГ«ГҐГІГЄГ  Г±ГўГ®ГЎГ®Г¤Г­Г  ГЁ Гў ГЇГ°ГҐГ¤ГҐГ«Г Гµ ГЇГ®Г«Гї (ГҐГ±Г«ГЁ ГЇГ®Г«ГҐ Г®ГЈГ°Г Г­ГЁГ·ГҐГ­Г®)
         int cellFree = 1;
         for (int i = 0; i < state->grid.size; i++) {
             if (state->grid.cells[i].x == newX &&
@@ -2180,7 +2180,7 @@ void makeAIMoveEasy(AppState* state) {
 
         if (cellFree) {
             if (state->settings.fieldSize > 0) {
-                // Проверяем, что в пределах ограниченного поля
+                // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬, Г·ГІГ® Гў ГЇГ°ГҐГ¤ГҐГ«Г Гµ Г®ГЈГ°Г Г­ГЁГ·ГҐГ­Г­Г®ГЈГ® ГЇГ®Г«Гї
                 if (abs(newX) <= state->settings.fieldSize / 2 &&
                     abs(newY) <= state->settings.fieldSize / 2) {
                     addCell(&state->grid, newX, newY);
@@ -2190,7 +2190,7 @@ void makeAIMoveEasy(AppState* state) {
                 }
             }
             else {
-                // Для бесконечного поля просто добавляем
+                // Г„Г«Гї ГЎГҐГ±ГЄГ®Г­ГҐГ·Г­Г®ГЈГ® ГЇГ®Г«Гї ГЇГ°Г®Г±ГІГ® Г¤Г®ГЎГ ГўГ«ГїГҐГ¬
                 addCell(&state->grid, newX, newY);
                 state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
                 logMove(&state->logger, newX, newY, MOVE_AI);
@@ -2201,9 +2201,9 @@ void makeAIMoveEasy(AppState* state) {
         attempts++;
     }
 
-    // Если не удалось найти место рядом, ставим в случайную свободную клетку
+    // Г…Г±Г«ГЁ Г­ГҐ ГіГ¤Г Г«Г®Г±Гј Г­Г Г©ГІГЁ Г¬ГҐГ±ГІГ® Г°ГїГ¤Г®Г¬, Г±ГІГ ГўГЁГ¬ Гў Г±Г«ГіГ·Г Г©Г­ГіГѕ Г±ГўГ®ГЎГ®Г¤Г­ГіГѕ ГЄГ«ГҐГІГЄГі
     if (state->settings.fieldSize > 0) {
-        // Для ограниченного поля
+        // Г„Г«Гї Г®ГЈГ°Г Г­ГЁГ·ГҐГ­Г­Г®ГЈГ® ГЇГ®Г«Гї
         for (int attempt = 0; attempt < 100; attempt++) {
             int x = (rand() % state->settings.fieldSize) - state->settings.fieldSize / 2;
             int y = (rand() % state->settings.fieldSize) - state->settings.fieldSize / 2;
@@ -2249,7 +2249,7 @@ void makeAIMoveEasy(AppState* state) {
     }
 }
 
-// Бот средней сложности меньше рандома, видит очевидные угрозы
+// ГЃГ®ГІ Г±Г°ГҐГ¤Г­ГҐГ© Г±Г«Г®Г¦Г­Г®Г±ГІГЁ Г¬ГҐГ­ГјГёГҐ Г°Г Г­Г¤Г®Г¬Г , ГўГЁГ¤ГЁГІ Г®Г·ГҐГўГЁГ¤Г­Г»ГҐ ГіГЈГ°Г®Г§Г»
 void makeAIMoveMedium(AppState* state) {
     
 
@@ -2261,22 +2261,22 @@ void makeAIMoveMedium(AppState* state) {
         logMove(&state->logger, 0, 0, MOVE_AI);
         return;
     }
-    // 1. Проверить, есть ли выигрышный ход для бота (нолика)
+    // 1. ГЏГ°Г®ГўГҐГ°ГЁГІГј, ГҐГ±ГІГј Г«ГЁ ГўГ»ГЁГЈГ°Г»ГёГ­Г»Г© ГµГ®Г¤ Г¤Г«Гї ГЎГ®ГІГ  (Г­Г®Г«ГЁГЄГ )
     for (int i = 0; i < state->grid.size; i++) {
-        if (state->grid.cells[i].symbol == aiSymbol) { // Ищем свои нолики
+        if (state->grid.cells[i].symbol == aiSymbol) { // Г€Г№ГҐГ¬ Г±ГўГ®ГЁ Г­Г®Г«ГЁГЄГЁ
             int x = state->grid.cells[i].x;
             int y = state->grid.cells[i].y;
 
-            // Проверяем все направления
+            // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ ГўГ±ГҐ Г­Г ГЇГ°Г ГўГ«ГҐГ­ГЁГї
             int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
 
             for (int d = 0; d < 4; d++) {
                 int dx = directions[d][0];
                 int dy = directions[d][1];
 
-                // Проверяем линию в обоих направлениях
+                // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ Г«ГЁГ­ГЁГѕ Гў Г®ГЎГ®ГЁГµ Г­Г ГЇГ°Г ГўГ«ГҐГ­ГЁГїГµ
                 for (int dir = -1; dir <= 1; dir += 2) {
-                    int count = 1; // Уже есть один нолик
+                    int count = 1; // Г“Г¦ГҐ ГҐГ±ГІГј Г®Г¤ГЁГ­ Г­Г®Г«ГЁГЄ
                     int emptyCount = 0;
                     int emptyX = -1, emptyY = -1;
 
@@ -2292,14 +2292,14 @@ void makeAIMoveMedium(AppState* state) {
                                     count++;
                                 }
                                 else if (state->grid.cells[j].symbol == playerSymbol) {
-                                    found = -1; // Крестик мешает
+                                    found = -1; // ГЉГ°ГҐГ±ГІГЁГЄ Г¬ГҐГёГ ГҐГІ
                                 }
                                 found = 1;
                                 break;
                             }
                         }
 
-                        if (found == 0) { // Пустая клетка
+                        if (found == 0) { // ГЏГіГ±ГІГ Гї ГЄГ«ГҐГІГЄГ 
                             emptyCount++;
                             emptyX = currentX;
                             emptyY = currentY;
@@ -2307,13 +2307,13 @@ void makeAIMoveMedium(AppState* state) {
                             if (emptyCount > 1) break;
                         }
                         else if (found == -1) {
-                            break; // Крестик на пути
+                            break; // ГЉГ°ГҐГ±ГІГЁГЄ Г­Г  ГЇГіГІГЁ
                         }
                     }
 
-                    // Если нашли выигрышный ход (ровно одна пустая клетка в линии нужной длины)
+                    // Г…Г±Г«ГЁ Г­Г ГёГ«ГЁ ГўГ»ГЁГЈГ°Г»ГёГ­Г»Г© ГµГ®Г¤ (Г°Г®ГўГ­Г® Г®Г¤Г­Г  ГЇГіГ±ГІГ Гї ГЄГ«ГҐГІГЄГ  Гў Г«ГЁГ­ГЁГЁ Г­ГіГ¦Г­Г®Г© Г¤Г«ГЁГ­Г»)
                     if (count == state->settings.winLineLength - 1 && emptyCount == 1) {
-                        // Проверяем, что клетка в пределах поля
+                        // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬, Г·ГІГ® ГЄГ«ГҐГІГЄГ  Гў ГЇГ°ГҐГ¤ГҐГ«Г Гµ ГЇГ®Г«Гї
                         if (state->settings.fieldSize == 0 ||
                             (abs(emptyX) <= state->settings.fieldSize / 2 &&
                                 abs(emptyY) <= state->settings.fieldSize / 2)) {
@@ -2328,9 +2328,9 @@ void makeAIMoveMedium(AppState* state) {
         }
     }
 
-    // 2. Проверить, нужно ли блокировать выигрышный ход игрока
+    // 2. ГЏГ°Г®ГўГҐГ°ГЁГІГј, Г­ГіГ¦Г­Г® Г«ГЁ ГЎГ«Г®ГЄГЁГ°Г®ГўГ ГІГј ГўГ»ГЁГЈГ°Г»ГёГ­Г»Г© ГµГ®Г¤ ГЁГЈГ°Г®ГЄГ 
     for (int i = 0; i < state->grid.size; i++) {
-        if (state->grid.cells[i].symbol == playerSymbol) { // Ищем крестики игрока
+        if (state->grid.cells[i].symbol == playerSymbol) { // Г€Г№ГҐГ¬ ГЄГ°ГҐГ±ГІГЁГЄГЁ ГЁГЈГ°Г®ГЄГ 
             int x = state->grid.cells[i].x;
             int y = state->grid.cells[i].y;
 
@@ -2340,9 +2340,9 @@ void makeAIMoveMedium(AppState* state) {
                 int dx = directions[d][0];
                 int dy = directions[d][1];
 
-                // Проверяем линию в обоих направлениях
+                // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ Г«ГЁГ­ГЁГѕ Гў Г®ГЎГ®ГЁГµ Г­Г ГЇГ°Г ГўГ«ГҐГ­ГЁГїГµ
                 for (int dir = -1; dir <= 1; dir += 2) {
-                    int count = 1; // Уже есть один крестик
+                    int count = 1; // Г“Г¦ГҐ ГҐГ±ГІГј Г®Г¤ГЁГ­ ГЄГ°ГҐГ±ГІГЁГЄ
                     int emptyCount = 0;
                     int emptyX = -1, emptyY = -1;
 
@@ -2358,14 +2358,14 @@ void makeAIMoveMedium(AppState* state) {
                                     count++;
                                 }
                                 else if (state->grid.cells[j].symbol == aiSymbol) {
-                                    found = -1; // Нолик мешает
+                                    found = -1; // ГЌГ®Г«ГЁГЄ Г¬ГҐГёГ ГҐГІ
                                 }
                                 found = 1;
                                 break;
                             }
                         }
 
-                        if (found == 0) { // Пустая клетка
+                        if (found == 0) { // ГЏГіГ±ГІГ Гї ГЄГ«ГҐГІГЄГ 
                             emptyCount++;
                             emptyX = currentX;
                             emptyY = currentY;
@@ -2373,11 +2373,11 @@ void makeAIMoveMedium(AppState* state) {
                             if (emptyCount > 1) break;
                         }
                         else if (found == -1) {
-                            break; // Нолик на пути
+                            break; // ГЌГ®Г«ГЁГЄ Г­Г  ГЇГіГІГЁ
                         }
                     }
 
-                    // Если нужно блокировать (ровно одна пустая клетка в линии нужной длины)
+                    // Г…Г±Г«ГЁ Г­ГіГ¦Г­Г® ГЎГ«Г®ГЄГЁГ°Г®ГўГ ГІГј (Г°Г®ГўГ­Г® Г®Г¤Г­Г  ГЇГіГ±ГІГ Гї ГЄГ«ГҐГІГЄГ  Гў Г«ГЁГ­ГЁГЁ Г­ГіГ¦Г­Г®Г© Г¤Г«ГЁГ­Г»)
                     if (count == state->settings.winLineLength - 1 && emptyCount == 1) {
                         if (state->settings.fieldSize == 0 ||
                             (abs(emptyX) <= state->settings.fieldSize / 2 &&
@@ -2393,7 +2393,7 @@ void makeAIMoveMedium(AppState* state) {
         }
     }
 
-    // 3. Занять центр, если он свободен
+    // 3. Г‡Г Г­ГїГІГј Г¶ГҐГ­ГІГ°, ГҐГ±Г«ГЁ Г®Г­ Г±ГўГ®ГЎГ®Г¤ГҐГ­
     if (state->settings.fieldSize > 0) {
         int centerX = 0, centerY = 0;
         int centerFree = 1;
@@ -2414,18 +2414,18 @@ void makeAIMoveMedium(AppState* state) {
         }
     }
 
-    // 4. Случайный выбор между атакой и защитой (упрощенная версия)
-    int strategy = rand() % 2; // 0 - атака, 1 - защита
+    // 4. Г‘Г«ГіГ·Г Г©Г­Г»Г© ГўГ»ГЎГ®Г° Г¬ГҐГ¦Г¤Гі Г ГІГ ГЄГ®Г© ГЁ Г§Г Г№ГЁГІГ®Г© (ГіГЇГ°Г®Г№ГҐГ­Г­Г Гї ГўГҐГ°Г±ГЁГї)
+    int strategy = rand() % 2; // 0 - Г ГІГ ГЄГ , 1 - Г§Г Г№ГЁГІГ 
 
-    if (strategy == 0) { // Атака - поставить рядом со своим ноликом
-        // Собираем все свои нолики
+    if (strategy == 0) { // ГЂГІГ ГЄГ  - ГЇГ®Г±ГІГ ГўГЁГІГј Г°ГїГ¤Г®Г¬ Г±Г® Г±ГўГ®ГЁГ¬ Г­Г®Г«ГЁГЄГ®Г¬
+        // Г‘Г®ГЎГЁГ°Г ГҐГ¬ ГўГ±ГҐ Г±ГўГ®ГЁ Г­Г®Г«ГЁГЄГЁ
         int nolikCount = 0;
         for (int i = 0; i < state->grid.size; i++) {
             if (state->grid.cells[i].symbol == aiSymbol) nolikCount++;
         }
 
         if (nolikCount > 0) {
-            // Выбираем случайный нолик
+            // Г‚Г»ГЎГЁГ°Г ГҐГ¬ Г±Г«ГіГ·Г Г©Г­Г»Г© Г­Г®Г«ГЁГЄ
             int randomIndex = rand() % nolikCount;
             int found = 0;
             int targetX = 0, targetY = 0;
@@ -2441,9 +2441,9 @@ void makeAIMoveMedium(AppState* state) {
                 }
             }
 
-            // Пытаемся поставить рядом (в радиусе 1 клетки)
+            // ГЏГ»ГІГ ГҐГ¬Г±Гї ГЇГ®Г±ГІГ ГўГЁГІГј Г°ГїГ¤Г®Г¬ (Гў Г°Г Г¤ГЁГіГ±ГҐ 1 ГЄГ«ГҐГІГЄГЁ)
             for (int attempt = 0; attempt < 8; attempt++) {
-                int dx = (rand() % 3) - 1; // -1, 0 или 1
+                int dx = (rand() % 3) - 1; // -1, 0 ГЁГ«ГЁ 1
                 int dy = (rand() % 3) - 1;
 
                 if (dx == 0 && dy == 0) continue;
@@ -2451,7 +2451,7 @@ void makeAIMoveMedium(AppState* state) {
                 int newX = targetX + dx;
                 int newY = targetY + dy;
 
-                // Проверяем, что клетка свободна
+                // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬, Г·ГІГ® ГЄГ«ГҐГІГЄГ  Г±ГўГ®ГЎГ®Г¤Г­Г 
                 int cellFree = 1;
                 for (int i = 0; i < state->grid.size; i++) {
                     if (state->grid.cells[i].x == newX &&
@@ -2462,7 +2462,7 @@ void makeAIMoveMedium(AppState* state) {
                 }
 
                 if (cellFree) {
-                    // Проверяем границы поля
+                    // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ ГЈГ°Г Г­ГЁГ¶Г» ГЇГ®Г«Гї
                     if (state->settings.fieldSize > 0) {
                         if (abs(newX) > state->settings.fieldSize / 2 ||
                             abs(newY) > state->settings.fieldSize / 2) {
@@ -2478,15 +2478,15 @@ void makeAIMoveMedium(AppState* state) {
             }
         }
     }
-    else { // Защита - поставить рядом с крестиком
-        // Собираем все крестики
+    else { // Г‡Г Г№ГЁГІГ  - ГЇГ®Г±ГІГ ГўГЁГІГј Г°ГїГ¤Г®Г¬ Г± ГЄГ°ГҐГ±ГІГЁГЄГ®Г¬
+        // Г‘Г®ГЎГЁГ°Г ГҐГ¬ ГўГ±ГҐ ГЄГ°ГҐГ±ГІГЁГЄГЁ
         int krestikCount = 0;
         for (int i = 0; i < state->grid.size; i++) {
             if (state->grid.cells[i].symbol == playerSymbol) krestikCount++;
         }
 
         if (krestikCount > 0) {
-            // Выбираем случайный крестик
+            // Г‚Г»ГЎГЁГ°Г ГҐГ¬ Г±Г«ГіГ·Г Г©Г­Г»Г© ГЄГ°ГҐГ±ГІГЁГЄ
             int randomIndex = rand() % krestikCount;
             int found = 0;
             int targetX = 0, targetY = 0;
@@ -2502,7 +2502,7 @@ void makeAIMoveMedium(AppState* state) {
                 }
             }
 
-            // Пытаемся поставить рядом (в радиусе 1 клетки)
+            // ГЏГ»ГІГ ГҐГ¬Г±Гї ГЇГ®Г±ГІГ ГўГЁГІГј Г°ГїГ¤Г®Г¬ (Гў Г°Г Г¤ГЁГіГ±ГҐ 1 ГЄГ«ГҐГІГЄГЁ)
             for (int attempt = 0; attempt < 8; attempt++) {
                 int dx = (rand() % 3) - 1;
                 int dy = (rand() % 3) - 1;
@@ -2512,7 +2512,7 @@ void makeAIMoveMedium(AppState* state) {
                 int newX = targetX + dx;
                 int newY = targetY + dy;
 
-                // Проверяем, что клетка свободна
+                // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬, Г·ГІГ® ГЄГ«ГҐГІГЄГ  Г±ГўГ®ГЎГ®Г¤Г­Г 
                 int cellFree = 1;
                 for (int i = 0; i < state->grid.size; i++) {
                     if (state->grid.cells[i].x == newX &&
@@ -2523,7 +2523,7 @@ void makeAIMoveMedium(AppState* state) {
                 }
 
                 if (cellFree) {
-                    // Проверяем границы поля
+                    // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ ГЈГ°Г Г­ГЁГ¶Г» ГЇГ®Г«Гї
                     if (state->settings.fieldSize > 0) {
                         if (abs(newX) > state->settings.fieldSize / 2 ||
                             abs(newY) > state->settings.fieldSize / 2) {
@@ -2540,12 +2540,12 @@ void makeAIMoveMedium(AppState* state) {
         }
     }
 
-    // Если все стратегии не сработали, делаем случайный ход
+    // Г…Г±Г«ГЁ ГўГ±ГҐ Г±ГІГ°Г ГІГҐГЈГЁГЁ Г­ГҐ Г±Г°Г ГЎГ®ГІГ Г«ГЁ, Г¤ГҐГ«Г ГҐГ¬ Г±Г«ГіГ·Г Г©Г­Г»Г© ГµГ®Г¤
     makeAIMoveEasy(state);
 }
 
 
-// Бот сложного уровня, работает на эвристиках, довольно эффективен, подробнее в отчете
+// ГЃГ®ГІ Г±Г«Г®Г¦Г­Г®ГЈГ® ГіГ°Г®ГўГ­Гї, Г°Г ГЎГ®ГІГ ГҐГІ Г­Г  ГЅГўГ°ГЁГ±ГІГЁГЄГ Гµ, Г¤Г®ГўГ®Г«ГјГ­Г® ГЅГґГґГҐГЄГІГЁГўГҐГ­, ГЇГ®Г¤Г°Г®ГЎГ­ГҐГҐ Гў Г®ГІГ·ГҐГІГҐ
 void makeAIMoveHard(AppState* state) {
     
 
@@ -2557,22 +2557,22 @@ void makeAIMoveHard(AppState* state) {
         logMove(&state->logger, 0, 0, MOVE_AI);
         return;
     }
-    // 1. Проверить, есть ли выигрышный ход для бота (нолика)
+    // 1. ГЏГ°Г®ГўГҐГ°ГЁГІГј, ГҐГ±ГІГј Г«ГЁ ГўГ»ГЁГЈГ°Г»ГёГ­Г»Г© ГµГ®Г¤ Г¤Г«Гї ГЎГ®ГІГ  (Г­Г®Г«ГЁГЄГ )
     for (int i = 0; i < state->grid.size; i++) {
-        if (state->grid.cells[i].symbol == aiSymbol) { // Ищем свои нолики
+        if (state->grid.cells[i].symbol == aiSymbol) { // Г€Г№ГҐГ¬ Г±ГўГ®ГЁ Г­Г®Г«ГЁГЄГЁ
             int x = state->grid.cells[i].x;
             int y = state->grid.cells[i].y;
 
-            // Проверяем все направления
+            // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ ГўГ±ГҐ Г­Г ГЇГ°Г ГўГ«ГҐГ­ГЁГї
             int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
 
             for (int d = 0; d < 4; d++) {
                 int dx = directions[d][0];
                 int dy = directions[d][1];
 
-                // Проверяем линию в обоих направлениях
+                // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ Г«ГЁГ­ГЁГѕ Гў Г®ГЎГ®ГЁГµ Г­Г ГЇГ°Г ГўГ«ГҐГ­ГЁГїГµ
                 for (int dir = -1; dir <= 1; dir += 2) {
-                    int count = 1; // Уже есть один нолик
+                    int count = 1; // Г“Г¦ГҐ ГҐГ±ГІГј Г®Г¤ГЁГ­ Г­Г®Г«ГЁГЄ
                     int emptyCount = 0;
                     int emptyX = -1, emptyY = -1;
 
@@ -2588,14 +2588,14 @@ void makeAIMoveHard(AppState* state) {
                                     count++;
                                 }
                                 else if (state->grid.cells[j].symbol == playerSymbol) {
-                                    found = -1; // Крестик мешает
+                                    found = -1; // ГЉГ°ГҐГ±ГІГЁГЄ Г¬ГҐГёГ ГҐГІ
                                 }
                                 found = 1;
                                 break;
                             }
                         }
 
-                        if (found == 0) { // Пустая клетка
+                        if (found == 0) { // ГЏГіГ±ГІГ Гї ГЄГ«ГҐГІГЄГ 
                             emptyCount++;
                             emptyX = currentX;
                             emptyY = currentY;
@@ -2603,13 +2603,13 @@ void makeAIMoveHard(AppState* state) {
                             if (emptyCount > 1) break;
                         }
                         else if (found == -1) {
-                            break; // Крестик на пути
+                            break; // ГЉГ°ГҐГ±ГІГЁГЄ Г­Г  ГЇГіГІГЁ
                         }
                     }
 
-                    // Если нашли выигрышный ход (ровно одна пустая клетка в линии нужной длины)
+                    // Г…Г±Г«ГЁ Г­Г ГёГ«ГЁ ГўГ»ГЁГЈГ°Г»ГёГ­Г»Г© ГµГ®Г¤ (Г°Г®ГўГ­Г® Г®Г¤Г­Г  ГЇГіГ±ГІГ Гї ГЄГ«ГҐГІГЄГ  Гў Г«ГЁГ­ГЁГЁ Г­ГіГ¦Г­Г®Г© Г¤Г«ГЁГ­Г»)
                     if (count >= state->settings.winLineLength - 1 && emptyCount == 1) {
-                        // Проверяем, что клетка в пределах поля
+                        // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬, Г·ГІГ® ГЄГ«ГҐГІГЄГ  Гў ГЇГ°ГҐГ¤ГҐГ«Г Гµ ГЇГ®Г«Гї
                         if (state->settings.fieldSize == 0 ||
                             (abs(emptyX) <= state->settings.fieldSize / 2 &&
                                 abs(emptyY) <= state->settings.fieldSize / 2)) {
@@ -2624,9 +2624,9 @@ void makeAIMoveHard(AppState* state) {
         }
     }
 
-    // 2. Проверить, нужно ли блокировать выигрышный ход игрока
+    // 2. ГЏГ°Г®ГўГҐГ°ГЁГІГј, Г­ГіГ¦Г­Г® Г«ГЁ ГЎГ«Г®ГЄГЁГ°Г®ГўГ ГІГј ГўГ»ГЁГЈГ°Г»ГёГ­Г»Г© ГµГ®Г¤ ГЁГЈГ°Г®ГЄГ 
     for (int i = 0; i < state->grid.size; i++) {
-        if (state->grid.cells[i].symbol == playerSymbol) { // Ищем крестики игрока
+        if (state->grid.cells[i].symbol == playerSymbol) { // Г€Г№ГҐГ¬ ГЄГ°ГҐГ±ГІГЁГЄГЁ ГЁГЈГ°Г®ГЄГ 
             int x = state->grid.cells[i].x;
             int y = state->grid.cells[i].y;
 
@@ -2636,9 +2636,9 @@ void makeAIMoveHard(AppState* state) {
                 int dx = directions[d][0];
                 int dy = directions[d][1];
 
-                // Проверяем линию в обоих направлениях
+                // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ Г«ГЁГ­ГЁГѕ Гў Г®ГЎГ®ГЁГµ Г­Г ГЇГ°Г ГўГ«ГҐГ­ГЁГїГµ
                 for (int dir = -1; dir <= 1; dir += 2) {
-                    int count = 1; // Уже есть один крестик
+                    int count = 1; // Г“Г¦ГҐ ГҐГ±ГІГј Г®Г¤ГЁГ­ ГЄГ°ГҐГ±ГІГЁГЄ
                     int emptyCount = 0;
                     int emptyX = -1, emptyY = -1;
 
@@ -2654,14 +2654,14 @@ void makeAIMoveHard(AppState* state) {
                                     count++;
                                 }
                                 else if (state->grid.cells[j].symbol == aiSymbol) {
-                                    found = -1; // Нолик мешает
+                                    found = -1; // ГЌГ®Г«ГЁГЄ Г¬ГҐГёГ ГҐГІ
                                 }
                                 found = 1;
                                 break;
                             }
                         }
 
-                        if (found == 0) { // Пустая клетка
+                        if (found == 0) { // ГЏГіГ±ГІГ Гї ГЄГ«ГҐГІГЄГ 
                             emptyCount++;
                             emptyX = currentX;
                             emptyY = currentY;
@@ -2669,11 +2669,11 @@ void makeAIMoveHard(AppState* state) {
                             if (emptyCount > 1) break;
                         }
                         else if (found == -1) {
-                            break; // Нолик на пути
+                            break; // ГЌГ®Г«ГЁГЄ Г­Г  ГЇГіГІГЁ
                         }
                     }
 
-                    // Если нужно блокировать (линия из winLength-1 крестиков с одной пустой)
+                    // Г…Г±Г«ГЁ Г­ГіГ¦Г­Г® ГЎГ«Г®ГЄГЁГ°Г®ГўГ ГІГј (Г«ГЁГ­ГЁГї ГЁГ§ winLength-1 ГЄГ°ГҐГ±ГІГЁГЄГ®Гў Г± Г®Г¤Г­Г®Г© ГЇГіГ±ГІГ®Г©)
                     if (count >= state->settings.winLineLength - 1 && emptyCount == 1) {
                         if (state->settings.fieldSize == 0 ||
                             (abs(emptyX) <= state->settings.fieldSize / 2 &&
@@ -2688,7 +2688,7 @@ void makeAIMoveHard(AppState* state) {
             }
         }
     }
-    // 4. Занять центр, если он свободен (только для ограниченного поля)
+    // 4. Г‡Г Г­ГїГІГј Г¶ГҐГ­ГІГ°, ГҐГ±Г«ГЁ Г®Г­ Г±ГўГ®ГЎГ®Г¤ГҐГ­ (ГІГ®Г«ГјГЄГ® Г¤Г«Гї Г®ГЈГ°Г Г­ГЁГ·ГҐГ­Г­Г®ГЈГ® ГЇГ®Г«Гї)
     if (state->settings.fieldSize > 0) {
         int centerX = 0, centerY = 0;
         int centerFree = 1;
@@ -2709,22 +2709,22 @@ void makeAIMoveHard(AppState* state) {
         }
     }
 
-    // 3. Поиск стратегически важных позиций (длинные линии)
-    // Сначала ищем свои линии, которые можно продолжить
+    // 3. ГЏГ®ГЁГ±ГЄ Г±ГІГ°Г ГІГҐГЈГЁГ·ГҐГ±ГЄГЁ ГўГ Г¦Г­Г»Гµ ГЇГ®Г§ГЁГ¶ГЁГ© (Г¤Г«ГЁГ­Г­Г»ГҐ Г«ГЁГ­ГЁГЁ)
+    // Г‘Г­Г Г·Г Г«Г  ГЁГ№ГҐГ¬ Г±ГўГ®ГЁ Г«ГЁГ­ГЁГЁ, ГЄГ®ГІГ®Г°Г»ГҐ Г¬Г®Г¦Г­Г® ГЇГ°Г®Г¤Г®Г«Г¦ГЁГІГј
     int bestScore = -1;
     int bestX = 0, bestY = 0;
 
-    // Проверяем все возможные пустые клетки
+    // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ ГўГ±ГҐ ГўГ®Г§Г¬Г®Г¦Г­Г»ГҐ ГЇГіГ±ГІГ»ГҐ ГЄГ«ГҐГІГЄГЁ
     for (int x = -state->settings.winLineLength; x <= state->settings.winLineLength; x++) {
         for (int y = -state->settings.winLineLength; y <= state->settings.winLineLength; y++) {
-            // Для ограниченного поля пропускаем клетки за границами
+            // Г„Г«Гї Г®ГЈГ°Г Г­ГЁГ·ГҐГ­Г­Г®ГЈГ® ГЇГ®Г«Гї ГЇГ°Г®ГЇГіГ±ГЄГ ГҐГ¬ ГЄГ«ГҐГІГЄГЁ Г§Г  ГЈГ°Г Г­ГЁГ¶Г Г¬ГЁ
             if (state->settings.fieldSize > 0 &&
                 (abs(x) > state->settings.fieldSize / 2 ||
                     abs(y) > state->settings.fieldSize / 2)) {
                 continue;
             }
 
-            // Проверяем, что клетка свободна
+            // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬, Г·ГІГ® ГЄГ«ГҐГІГЄГ  Г±ГўГ®ГЎГ®Г¤Г­Г 
             int cellFree = 1;
             for (int i = 0; i < state->grid.size; i++) {
                 if (state->grid.cells[i].x == x && state->grid.cells[i].y == y) {
@@ -2735,7 +2735,7 @@ void makeAIMoveHard(AppState* state) {
 
             if (!cellFree) continue;
 
-            // Оцениваем клетку по всем направлениям
+            // ГЋГ¶ГҐГ­ГЁГўГ ГҐГ¬ ГЄГ«ГҐГІГЄГі ГЇГ® ГўГ±ГҐГ¬ Г­Г ГЇГ°Г ГўГ«ГҐГ­ГЁГїГ¬
             int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
             int cellScore = 0;
 
@@ -2743,26 +2743,26 @@ void makeAIMoveHard(AppState* state) {
                 int dx = directions[d][0];
                 int dy = directions[d][1];
 
-                // Проверяем линию в обоих направлениях
-                int myCount = 0;   // Нолики
-                int oppCount = 0;   // Крестики
-                int emptyCount = 0;  // Пустые
+                // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ Г«ГЁГ­ГЁГѕ Гў Г®ГЎГ®ГЁГµ Г­Г ГЇГ°Г ГўГ«ГҐГ­ГЁГїГµ
+                int myCount = 0;   // ГЌГ®Г«ГЁГЄГЁ
+                int oppCount = 0;   // ГЉГ°ГҐГ±ГІГЁГЄГЁ
+                int emptyCount = 0;  // ГЏГіГ±ГІГ»ГҐ
 
                 for (int step = -state->settings.winLineLength + 1;
                     step < state->settings.winLineLength; step++) {
-                    if (step == 0) continue; // Пропускаем центральную клетку (она пустая)
+                    if (step == 0) continue; // ГЏГ°Г®ГЇГіГ±ГЄГ ГҐГ¬ Г¶ГҐГ­ГІГ°Г Г«ГјГ­ГіГѕ ГЄГ«ГҐГІГЄГі (Г®Г­Г  ГЇГіГ±ГІГ Гї)
 
                     int currentX = x + dx * step;
                     int currentY = y + dy * step;
 
-                    // Для ограниченного поля проверяем границы
+                    // Г„Г«Гї Г®ГЈГ°Г Г­ГЁГ·ГҐГ­Г­Г®ГЈГ® ГЇГ®Г«Гї ГЇГ°Г®ГўГҐГ°ГїГҐГ¬ ГЈГ°Г Г­ГЁГ¶Г»
                     if (state->settings.fieldSize > 0 &&
                         (abs(currentX) > state->settings.fieldSize / 2 ||
                             abs(currentY) > state->settings.fieldSize / 2)) {
                         continue;
                     }
 
-                    // Проверяем содержимое клетки
+                    // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ Г±Г®Г¤ГҐГ°Г¦ГЁГ¬Г®ГҐ ГЄГ«ГҐГІГЄГЁ
                     int found = 0;
                     for (int i = 0; i < state->grid.size; i++) {
                         if (state->grid.cells[i].x == currentX &&
@@ -2776,18 +2776,18 @@ void makeAIMoveHard(AppState* state) {
                     if (!found) emptyCount++;
                 }
 
-                // Оцениваем потенциал линии
+                // ГЋГ¶ГҐГ­ГЁГўГ ГҐГ¬ ГЇГ®ГІГҐГ­Г¶ГЁГ Г« Г«ГЁГ­ГЁГЁ
                 if (myCount > 0 && oppCount == 0) {
-                    // Линия с нашими символами - хорошая возможность
+                    // Г‹ГЁГ­ГЁГї Г± Г­Г ГёГЁГ¬ГЁ Г±ГЁГ¬ГўГ®Г«Г Г¬ГЁ - ГµГ®Г°Г®ГёГ Гї ГўГ®Г§Г¬Г®Г¦Г­Г®Г±ГІГј
                     cellScore += myCount * myCount;
                 }
                 else if (oppCount > 0 && myCount == 0) {
-                    // Линия с символами противника - нужно блокировать
+                    // Г‹ГЁГ­ГЁГї Г± Г±ГЁГ¬ГўГ®Г«Г Г¬ГЁ ГЇГ°Г®ГІГЁГўГ­ГЁГЄГ  - Г­ГіГ¦Г­Г® ГЎГ«Г®ГЄГЁГ°Г®ГўГ ГІГј
                     cellScore += oppCount * oppCount;
                 }
             }
 
-            // Обновляем лучшую клетку
+            // ГЋГЎГ­Г®ГўГ«ГїГҐГ¬ Г«ГіГ·ГёГіГѕ ГЄГ«ГҐГІГЄГі
             if (cellScore > bestScore) {
                 bestScore = cellScore;
                 bestX = x;
@@ -2796,7 +2796,7 @@ void makeAIMoveHard(AppState* state) {
         }
     }
 
-    // Если нашли хорошую позицию, делаем ход
+    // Г…Г±Г«ГЁ Г­Г ГёГ«ГЁ ГµГ®Г°Г®ГёГіГѕ ГЇГ®Г§ГЁГ¶ГЁГѕ, Г¤ГҐГ«Г ГҐГ¬ ГµГ®Г¤
     if (bestScore > 0) {
         addCell(&state->grid, bestX, bestY);
         state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
@@ -2806,13 +2806,13 @@ void makeAIMoveHard(AppState* state) {
 
     
 
-    // 5. Если ничего стратегического не найдено, делаем ход рядом с существующими ноликами
+    // 5. Г…Г±Г«ГЁ Г­ГЁГ·ГҐГЈГ® Г±ГІГ°Г ГІГҐГЈГЁГ·ГҐГ±ГЄГ®ГЈГ® Г­ГҐ Г­Г Г©Г¤ГҐГ­Г®, Г¤ГҐГ«Г ГҐГ¬ ГµГ®Г¤ Г°ГїГ¤Г®Г¬ Г± Г±ГіГ№ГҐГ±ГІГўГіГѕГ№ГЁГ¬ГЁ Г­Г®Г«ГЁГЄГ Г¬ГЁ
     for (int i = 0; i < state->grid.size; i++) {
-        if (state->grid.cells[i].symbol == aiSymbol) { // Нашли нолик
+        if (state->grid.cells[i].symbol == aiSymbol) { // ГЌГ ГёГ«ГЁ Г­Г®Г«ГЁГЄ
             int x = state->grid.cells[i].x;
             int y = state->grid.cells[i].y;
 
-            // Проверяем все соседние клетки
+            // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ ГўГ±ГҐ Г±Г®Г±ГҐГ¤Г­ГЁГҐ ГЄГ«ГҐГІГЄГЁ
             for (int dx = -1; dx <= 1; dx++) {
                 for (int dy = -1; dy <= 1; dy++) {
                     if (dx == 0 && dy == 0) continue;
@@ -2820,14 +2820,14 @@ void makeAIMoveHard(AppState* state) {
                     int newX = x + dx;
                     int newY = y + dy;
 
-                    // Проверяем границы для ограниченного поля
+                    // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ ГЈГ°Г Г­ГЁГ¶Г» Г¤Г«Гї Г®ГЈГ°Г Г­ГЁГ·ГҐГ­Г­Г®ГЈГ® ГЇГ®Г«Гї
                     if (state->settings.fieldSize > 0 &&
                         (abs(newX) > state->settings.fieldSize / 2 ||
                             abs(newY) > state->settings.fieldSize / 2)) {
                         continue;
                     }
 
-                    // Проверяем, что клетка свободна
+                    // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬, Г·ГІГ® ГЄГ«ГҐГІГЄГ  Г±ГўГ®ГЎГ®Г¤Г­Г 
                     int cellFree = 1;
                     for (int j = 0; j < state->grid.size; j++) {
                         if (state->grid.cells[j].x == newX &&
@@ -2848,17 +2848,17 @@ void makeAIMoveHard(AppState* state) {
         }
     }
 
-    // 6. Если все остальное не сработало, делаем случайный ход
+    // 6. Г…Г±Г«ГЁ ГўГ±ГҐ Г®Г±ГІГ Г«ГјГ­Г®ГҐ Г­ГҐ Г±Г°Г ГЎГ®ГІГ Г«Г®, Г¤ГҐГ«Г ГҐГ¬ Г±Г«ГіГ·Г Г©Г­Г»Г© ГµГ®Г¤
     makeAIMoveMedium(state);
 }
 
 
-// Вспомогательная функция для оценки позиции (для минимакса)
+// Г‚Г±ГЇГ®Г¬Г®ГЈГ ГІГҐГ«ГјГ­Г Гї ГґГіГ­ГЄГ¶ГЁГї Г¤Г«Гї Г®Г¶ГҐГ­ГЄГЁ ГЇГ®Г§ГЁГ¶ГЁГЁ (Г¤Г«Гї Г¬ГЁГ­ГЁГ¬Г ГЄГ±Г )
 int evaluatePosition(AppState* state, int symbol, int opponentSymbol) {
     int score = 0;
     
 
-    // Проверяем все клетки с нашим символом
+    // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ ГўГ±ГҐ ГЄГ«ГҐГІГЄГЁ Г± Г­Г ГёГЁГ¬ Г±ГЁГ¬ГўГ®Г«Г®Г¬
     for (int i = 0; i < state->grid.size; i++) {
         if (state->grid.cells[i].symbol != symbol) continue;
 
@@ -2871,12 +2871,12 @@ int evaluatePosition(AppState* state, int symbol, int opponentSymbol) {
             int dx = directions[d][0];
             int dy = directions[d][1];
 
-            // Проверяем линию в обоих направлениях
-            int count = 1; // Уже есть один наш символ
+            // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ Г«ГЁГ­ГЁГѕ Гў Г®ГЎГ®ГЁГµ Г­Г ГЇГ°Г ГўГ«ГҐГ­ГЁГїГµ
+            int count = 1; // Г“Г¦ГҐ ГҐГ±ГІГј Г®Г¤ГЁГ­ Г­Г Гё Г±ГЁГ¬ГўГ®Г«
             int openEnds = 0;
             int blockedEnds = 0;
 
-            // Проверяем в одном направлении
+            // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ Гў Г®Г¤Г­Г®Г¬ Г­Г ГЇГ°Г ГўГ«ГҐГ­ГЁГЁ
             for (int step = 1; step < state->settings.winLineLength; step++) {
                 int currentX = x + dx * step;
                 int currentY = y + dy * step;
@@ -2892,7 +2892,7 @@ int evaluatePosition(AppState* state, int symbol, int opponentSymbol) {
                     }
                 }
                 if (!found) {
-                    // Проверяем границы для ограниченного поля
+                    // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ ГЈГ°Г Г­ГЁГ¶Г» Г¤Г«Гї Г®ГЈГ°Г Г­ГЁГ·ГҐГ­Г­Г®ГЈГ® ГЇГ®Г«Гї
                     if (state->settings.fieldSize > 0 &&
                         (abs(currentX) > state->settings.fieldSize / 2 ||
                             abs(currentY) > state->settings.fieldSize / 2)) {
@@ -2905,7 +2905,7 @@ int evaluatePosition(AppState* state, int symbol, int opponentSymbol) {
                 }
             }
 
-            // Проверяем в противоположном направлении
+            // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ Гў ГЇГ°Г®ГІГЁГўГ®ГЇГ®Г«Г®Г¦Г­Г®Г¬ Г­Г ГЇГ°Г ГўГ«ГҐГ­ГЁГЁ
             for (int step = 1; step < state->settings.winLineLength; step++) {
                 int currentX = x - dx * step;
                 int currentY = y - dy * step;
@@ -2921,7 +2921,7 @@ int evaluatePosition(AppState* state, int symbol, int opponentSymbol) {
                     }
                 }
                 if (!found) {
-                    // Проверяем границы для ограниченного поля
+                    // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ ГЈГ°Г Г­ГЁГ¶Г» Г¤Г«Гї Г®ГЈГ°Г Г­ГЁГ·ГҐГ­Г­Г®ГЈГ® ГЇГ®Г«Гї
                     if (state->settings.fieldSize > 0 &&
                         (abs(currentX) > state->settings.fieldSize / 2 ||
                             abs(currentY) > state->settings.fieldSize / 2)) {
@@ -2934,9 +2934,9 @@ int evaluatePosition(AppState* state, int symbol, int opponentSymbol) {
                 }
             }
 
-            // Оцениваем потенциальную линию
+            // ГЋГ¶ГҐГ­ГЁГўГ ГҐГ¬ ГЇГ®ГІГҐГ­Г¶ГЁГ Г«ГјГ­ГіГѕ Г«ГЁГ­ГЁГѕ
             if (count >= state->settings.winLineLength) {
-                return (symbol == 2) ? 10000 : -10000; // Победа/поражение
+                return (symbol == 2) ? 10000 : -10000; // ГЏГ®ГЎГҐГ¤Г /ГЇГ®Г°Г Г¦ГҐГ­ГЁГҐ
             }
 
             if (blockedEnds == 0) {
@@ -2954,14 +2954,14 @@ int evaluatePosition(AppState* state, int symbol, int opponentSymbol) {
     return score;
 }
 
-// Минимакс с альфа-бета отсечением
+// ГЊГЁГ­ГЁГ¬Г ГЄГ± Г± Г Г«ГјГґГ -ГЎГҐГІГ  Г®ГІГ±ГҐГ·ГҐГ­ГЁГҐГ¬
 int minimax(AppState* state, int depth, int isMaximizing, int alpha, int beta, int* bestX, int* bestY, int aiSymbol, int playerSymbol) {
-    // Проверяем терминальные состояния
+    // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ ГІГҐГ°Г¬ГЁГ­Г Г«ГјГ­Г»ГҐ Г±Г®Г±ГІГ®ГїГ­ГЁГї
     int playerWin = checkWinCondition(state, playerSymbol, state->settings.winLineLength);
     int aiWin = checkWinCondition(state, aiSymbol, state->settings.winLineLength);
     int draw = checkForDraw(state);
 
-    if (aiWin) return 100000 - depth; // Чем глубже, тем меньше очки
+    if (aiWin) return 100000 - depth; // Г—ГҐГ¬ ГЈГ«ГіГЎГ¦ГҐ, ГІГҐГ¬ Г¬ГҐГ­ГјГёГҐ Г®Г·ГЄГЁ
     if (playerWin) return -100000 + depth;
     if (draw) return 0;
     if (depth == 0) return evaluatePosition(state, playerSymbol, aiSymbol);
@@ -2969,17 +2969,17 @@ int minimax(AppState* state, int depth, int isMaximizing, int alpha, int beta, i
     if (isMaximizing) {
         int maxEval = -1000000;
 
-        // Генерируем возможные ходы
+        // ГѓГҐГ­ГҐГ°ГЁГ°ГіГҐГ¬ ГўГ®Г§Г¬Г®Г¦Г­Г»ГҐ ГµГ®Г¤Г»
         for (int x = -state->settings.winLineLength; x <= state->settings.winLineLength; x++) {
             for (int y = -state->settings.winLineLength; y <= state->settings.winLineLength; y++) {
-                // Проверяем границы для ограниченного поля
+                // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ ГЈГ°Г Г­ГЁГ¶Г» Г¤Г«Гї Г®ГЈГ°Г Г­ГЁГ·ГҐГ­Г­Г®ГЈГ® ГЇГ®Г«Гї
                 if (state->settings.fieldSize > 0 &&
                     (abs(x) > state->settings.fieldSize / 2 ||
                         abs(y) > state->settings.fieldSize / 2)) {
                     continue;
                 }
 
-                // Проверяем, что клетка свободна
+                // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬, Г·ГІГ® ГЄГ«ГҐГІГЄГ  Г±ГўГ®ГЎГ®Г¤Г­Г 
                 int cellFree = 1;
                 for (int i = 0; i < state->grid.size; i++) {
                     if (state->grid.cells[i].x == x && state->grid.cells[i].y == y) {
@@ -2989,13 +2989,13 @@ int minimax(AppState* state, int depth, int isMaximizing, int alpha, int beta, i
                 }
 
                 if (cellFree) {
-                    // Делаем ход
+                    // Г„ГҐГ«Г ГҐГ¬ ГµГ®Г¤
                     addCell(&state->grid, x, y);
                     state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
 
                     int eval = minimax(state, depth - 1, 0, alpha, beta, NULL, NULL, aiSymbol, playerSymbol);
 
-                    // Отменяем ход
+                    // ГЋГІГ¬ГҐГ­ГїГҐГ¬ ГµГ®Г¤
                     state->grid.size--;
 
                     if (eval > maxEval) {
@@ -3016,17 +3016,17 @@ int minimax(AppState* state, int depth, int isMaximizing, int alpha, int beta, i
     else {
         int minEval = 1000000;
 
-        // Генерируем возможные ходы
+        // ГѓГҐГ­ГҐГ°ГЁГ°ГіГҐГ¬ ГўГ®Г§Г¬Г®Г¦Г­Г»ГҐ ГµГ®Г¤Г»
         for (int x = -state->settings.winLineLength; x <= state->settings.winLineLength; x++) {
             for (int y = -state->settings.winLineLength; y <= state->settings.winLineLength; y++) {
-                // Проверяем границы для ограниченного поля
+                // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ ГЈГ°Г Г­ГЁГ¶Г» Г¤Г«Гї Г®ГЈГ°Г Г­ГЁГ·ГҐГ­Г­Г®ГЈГ® ГЇГ®Г«Гї
                 if (state->settings.fieldSize > 0 &&
                     (abs(x) > state->settings.fieldSize / 2 ||
                         abs(y) > state->settings.fieldSize / 2)) {
                     continue;
                 }
 
-                // Проверяем, что клетка свободна
+                // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬, Г·ГІГ® ГЄГ«ГҐГІГЄГ  Г±ГўГ®ГЎГ®Г¤Г­Г 
                 int cellFree = 1;
                 for (int i = 0; i < state->grid.size; i++) {
                     if (state->grid.cells[i].x == x && state->grid.cells[i].y == y) {
@@ -3036,13 +3036,13 @@ int minimax(AppState* state, int depth, int isMaximizing, int alpha, int beta, i
                 }
 
                 if (cellFree) {
-                    // Делаем ход
+                    // Г„ГҐГ«Г ГҐГ¬ ГµГ®Г¤
                     addCell(&state->grid, x, y);
                     state->grid.cells[state->grid.size - 1].symbol = playerSymbol;
 
                     int eval = minimax(state, depth - 1, 1, alpha, beta, NULL, NULL, aiSymbol, playerSymbol);
 
-                    // Отменяем ход
+                    // ГЋГІГ¬ГҐГ­ГїГҐГ¬ ГµГ®Г¤
                     state->grid.size--;
 
                     if (eval < minEval) {
@@ -3059,7 +3059,7 @@ int minimax(AppState* state, int depth, int isMaximizing, int alpha, int beta, i
 }
 
 
-// Основная функция для экспертного уровня, реализация частично через эвристики и через минимакса с альфа бета отсечением, довольно хорош, но не эффективен на больших линиях и полях
+// ГЋГ±Г­Г®ГўГ­Г Гї ГґГіГ­ГЄГ¶ГЁГї Г¤Г«Гї ГЅГЄГ±ГЇГҐГ°ГІГ­Г®ГЈГ® ГіГ°Г®ГўГ­Гї, Г°ГҐГ Г«ГЁГ§Г Г¶ГЁГї Г·Г Г±ГІГЁГ·Г­Г® Г·ГҐГ°ГҐГ§ ГЅГўГ°ГЁГ±ГІГЁГЄГЁ ГЁ Г·ГҐГ°ГҐГ§ Г¬ГЁГ­ГЁГ¬Г ГЄГ±Г  Г± Г Г«ГјГґГ  ГЎГҐГІГ  Г®ГІГ±ГҐГ·ГҐГ­ГЁГҐГ¬, Г¤Г®ГўГ®Г«ГјГ­Г® ГµГ®Г°Г®Гё, Г­Г® Г­ГҐ ГЅГґГґГҐГЄГІГЁГўГҐГ­ Г­Г  ГЎГ®Г«ГјГёГЁГµ Г«ГЁГ­ГЁГїГµ ГЁ ГЇГ®Г«ГїГµ
 void makeAIMoveExpert(AppState* state) {
     int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
     int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
@@ -3070,9 +3070,9 @@ void makeAIMoveExpert(AppState* state) {
         logMove(&state->logger, 0, 0, MOVE_AI);
         return;
     }
-    // 1. Проверить, есть ли выигрышный ход для бота (нолика)
+    // 1. ГЏГ°Г®ГўГҐГ°ГЁГІГј, ГҐГ±ГІГј Г«ГЁ ГўГ»ГЁГЈГ°Г»ГёГ­Г»Г© ГµГ®Г¤ Г¤Г«Гї ГЎГ®ГІГ  (Г­Г®Г«ГЁГЄГ )
     for (int i = 0; i < state->grid.size && state->settings.fieldSize != 3; i++) {
-        if (state->grid.cells[i].symbol == aiSymbol) { // Ищем свои нолики
+        if (state->grid.cells[i].symbol == aiSymbol) { // Г€Г№ГҐГ¬ Г±ГўГ®ГЁ Г­Г®Г«ГЁГЄГЁ
             int x = state->grid.cells[i].x;
             int y = state->grid.cells[i].y;
 
@@ -3082,9 +3082,9 @@ void makeAIMoveExpert(AppState* state) {
                 int dx = directions[d][0];
                 int dy = directions[d][1];
 
-                // Проверяем линию в обоих направлениях
+                // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ Г«ГЁГ­ГЁГѕ Гў Г®ГЎГ®ГЁГµ Г­Г ГЇГ°Г ГўГ«ГҐГ­ГЁГїГµ
                 for (int dir = -1; dir <= 1; dir += 2) {
-                    int count = 1; // Уже есть один нолик
+                    int count = 1; // Г“Г¦ГҐ ГҐГ±ГІГј Г®Г¤ГЁГ­ Г­Г®Г«ГЁГЄ
                     int emptyCount = 0;
                     int emptyX = -1, emptyY = -1;
 
@@ -3103,7 +3103,7 @@ void makeAIMoveExpert(AppState* state) {
                             }
                         }
 
-                        if (found == 0) { // Пустая клетка
+                        if (found == 0) { // ГЏГіГ±ГІГ Гї ГЄГ«ГҐГІГЄГ 
                             emptyCount++;
                             emptyX = currentX;
                             emptyY = currentY;
@@ -3112,7 +3112,7 @@ void makeAIMoveExpert(AppState* state) {
                         else if (found == -1) break;
                     }
 
-                    // Выигрышный ход (не хватает одной фигуры)
+                    // Г‚Г»ГЁГЈГ°Г»ГёГ­Г»Г© ГµГ®Г¤ (Г­ГҐ ГµГўГ ГІГ ГҐГІ Г®Г¤Г­Г®Г© ГґГЁГЈГіГ°Г»)
                     if (count >= state->settings.winLineLength - 1 && emptyCount == 1) {
                         if (state->settings.fieldSize == 0 ||
                             (abs(emptyX) <= state->settings.fieldSize / 2 &&
@@ -3128,9 +3128,9 @@ void makeAIMoveExpert(AppState* state) {
         }
     }
 
-    // 2. Проверить, нужно ли блокировать выигрышный ход игрока (не хватает одной фигуры)
+    // 2. ГЏГ°Г®ГўГҐГ°ГЁГІГј, Г­ГіГ¦Г­Г® Г«ГЁ ГЎГ«Г®ГЄГЁГ°Г®ГўГ ГІГј ГўГ»ГЁГЈГ°Г»ГёГ­Г»Г© ГµГ®Г¤ ГЁГЈГ°Г®ГЄГ  (Г­ГҐ ГµГўГ ГІГ ГҐГІ Г®Г¤Г­Г®Г© ГґГЁГЈГіГ°Г»)
     for (int i = 0; i < state->grid.size && state->settings.fieldSize != 3; i++) {
-        if (state->grid.cells[i].symbol == playerSymbol) { // Ищем крестики игрока
+        if (state->grid.cells[i].symbol == playerSymbol) { // Г€Г№ГҐГ¬ ГЄГ°ГҐГ±ГІГЁГЄГЁ ГЁГЈГ°Г®ГЄГ 
             int x = state->grid.cells[i].x;
             int y = state->grid.cells[i].y;
 
@@ -3140,9 +3140,9 @@ void makeAIMoveExpert(AppState* state) {
                 int dx = directions[d][0];
                 int dy = directions[d][1];
 
-                // Проверяем линию в обоих направлениях
+                // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ Г«ГЁГ­ГЁГѕ Гў Г®ГЎГ®ГЁГµ Г­Г ГЇГ°Г ГўГ«ГҐГ­ГЁГїГµ
                 for (int dir = -1; dir <= 1; dir += 2) {
-                    int count = 1; // Уже есть один крестик
+                    int count = 1; // Г“Г¦ГҐ ГҐГ±ГІГј Г®Г¤ГЁГ­ ГЄГ°ГҐГ±ГІГЁГЄ
                     int emptyCount = 0;
                     int emptyX = -1, emptyY = -1;
 
@@ -3161,7 +3161,7 @@ void makeAIMoveExpert(AppState* state) {
                             }
                         }
 
-                        if (found == 0) { // Пустая клетка
+                        if (found == 0) { // ГЏГіГ±ГІГ Гї ГЄГ«ГҐГІГЄГ 
                             emptyCount++;
                             emptyX = currentX;
                             emptyY = currentY;
@@ -3170,7 +3170,7 @@ void makeAIMoveExpert(AppState* state) {
                         else if (found == -1) break;
                     }
 
-                    // Срочная блокировка (не хватает одной фигуры)
+                    // Г‘Г°Г®Г·Г­Г Гї ГЎГ«Г®ГЄГЁГ°Г®ГўГЄГ  (Г­ГҐ ГµГўГ ГІГ ГҐГІ Г®Г¤Г­Г®Г© ГґГЁГЈГіГ°Г»)
                     if (count >= state->settings.winLineLength - 1 && emptyCount == 1) {
                         if (state->settings.fieldSize == 0 ||
                             (abs(emptyX) <= state->settings.fieldSize / 2 &&
@@ -3186,9 +3186,9 @@ void makeAIMoveExpert(AppState* state) {
         }
     }
 
-    // 3. Проверить опасные ситуации (не хватает двух фигур)
+    // 3. ГЏГ°Г®ГўГҐГ°ГЁГІГј Г®ГЇГ Г±Г­Г»ГҐ Г±ГЁГІГіГ Г¶ГЁГЁ (Г­ГҐ ГµГўГ ГІГ ГҐГІ Г¤ГўГіГµ ГґГЁГЈГіГ°)
     for (int i = 0; i < state->grid.size && state->settings.fieldSize != 3; i++) {
-        if (state->grid.cells[i].symbol == playerSymbol) { // Ищем крестики игрока
+        if (state->grid.cells[i].symbol == playerSymbol) { // Г€Г№ГҐГ¬ ГЄГ°ГҐГ±ГІГЁГЄГЁ ГЁГЈГ°Г®ГЄГ 
             int x = state->grid.cells[i].x;
             int y = state->grid.cells[i].y;
 
@@ -3198,9 +3198,9 @@ void makeAIMoveExpert(AppState* state) {
                 int dx = directions[d][0];
                 int dy = directions[d][1];
 
-                // Проверяем линию в обоих направлениях
+                // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ Г«ГЁГ­ГЁГѕ Гў Г®ГЎГ®ГЁГµ Г­Г ГЇГ°Г ГўГ«ГҐГ­ГЁГїГµ
                 for (int dir = -1; dir <= 1; dir += 2) {
-                    int count = 1; // Уже есть один крестик
+                    int count = 1; // Г“Г¦ГҐ ГҐГ±ГІГј Г®Г¤ГЁГ­ ГЄГ°ГҐГ±ГІГЁГЄ
                     int emptyCount = 0;
                     int emptyX1 = -1, emptyY1 = -1;
                     int emptyX2 = -1, emptyY2 = -1;
@@ -3220,7 +3220,7 @@ void makeAIMoveExpert(AppState* state) {
                             }
                         }
 
-                        if (found == 0) { // Пустая клетка
+                        if (found == 0) { // ГЏГіГ±ГІГ Гї ГЄГ«ГҐГІГЄГ 
                             if (emptyCount == 0) {
                                 emptyX1 = currentX;
                                 emptyY1 = currentY;
@@ -3235,9 +3235,9 @@ void makeAIMoveExpert(AppState* state) {
                         else if (found == -1) break;
                     }
 
-                    // Опасная ситуация (не хватает двух фигур)
+                    // ГЋГЇГ Г±Г­Г Гї Г±ГЁГІГіГ Г¶ГЁГї (Г­ГҐ ГµГўГ ГІГ ГҐГІ Г¤ГўГіГµ ГґГЁГЈГіГ°)
                     if (count >= state->settings.winLineLength - 2 && emptyCount >= 2) {
-                        // Предпочитаем блокировать клетку, которая создаст больше возможностей для нас
+                        // ГЏГ°ГҐГ¤ГЇГ®Г·ГЁГІГ ГҐГ¬ ГЎГ«Г®ГЄГЁГ°Г®ГўГ ГІГј ГЄГ«ГҐГІГЄГі, ГЄГ®ГІГ®Г°Г Гї Г±Г®Г§Г¤Г Г±ГІ ГЎГ®Г«ГјГёГҐ ГўГ®Г§Г¬Г®Г¦Г­Г®Г±ГІГҐГ© Г¤Г«Гї Г­Г Г±
                         if (emptyX1 != -1 && emptyY1 != -1) {
                             if (state->settings.fieldSize == 0 ||
                                 (abs(emptyX1) <= state->settings.fieldSize / 2 &&
@@ -3264,7 +3264,7 @@ void makeAIMoveExpert(AppState* state) {
         }
     }
 
-    // 4. Использовать минимакс для стратегических ходов
+    // 4. Г€Г±ГЇГ®Г«ГјГ§Г®ГўГ ГІГј Г¬ГЁГ­ГЁГ¬Г ГЄГ± Г¤Г«Гї Г±ГІГ°Г ГІГҐГЈГЁГ·ГҐГ±ГЄГЁГµ ГµГ®Г¤Г®Гў
     int bestX = 0, bestY = 0;
     if (state->settings.fieldSize == 3) {
         minimax(state, 100, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
@@ -3313,7 +3313,7 @@ void makeAIMoveExpert(AppState* state) {
         }
     }
 
-    // 5. Если все остальное не сработало, используем стратегию из сложного уровня
+    // 5. Г…Г±Г«ГЁ ГўГ±ГҐ Г®Г±ГІГ Г«ГјГ­Г®ГҐ Г­ГҐ Г±Г°Г ГЎГ®ГІГ Г«Г®, ГЁГ±ГЇГ®Г«ГјГ§ГіГҐГ¬ Г±ГІГ°Г ГІГҐГЈГЁГѕ ГЁГ§ Г±Г«Г®Г¦Г­Г®ГЈГ® ГіГ°Г®ГўГ­Гї
     makeAIMoveHard(state);
 }
 
@@ -3323,31 +3323,31 @@ int main() {
     
     
     
-    // Инициализация GLFW
+    // Г€Г­ГЁГ¶ГЁГ Г«ГЁГ§Г Г¶ГЁГї GLFW
     if (!glfwInit()) {
-        fprintf(stderr, "Ошибка инициализации GLFW\n");
+        fprintf(stderr, "ГЋГёГЁГЎГЄГ  ГЁГ­ГЁГ¶ГЁГ Г«ГЁГ§Г Г¶ГЁГЁ GLFW\n");
         return -1;
     }
 
-    // Создаем окно
+    // Г‘Г®Г§Г¤Г ГҐГ¬ Г®ГЄГ­Г®
     GLFWwindow* window = glfwCreateWindow(1240, 1240, "Krestiki-Noliki", NULL, NULL);
     if (!window) {
-        fprintf(stderr, "Ошибка создания окна\n");
+        fprintf(stderr, "ГЋГёГЁГЎГЄГ  Г±Г®Г§Г¤Г Г­ГЁГї Г®ГЄГ­Г \n");
         glfwTerminate();
         return -1;
     }
 
-    // Делаем контекст текущим
+    // Г„ГҐГ«Г ГҐГ¬ ГЄГ®Г­ГІГҐГЄГ±ГІ ГІГҐГЄГіГ№ГЁГ¬
     glfwMakeContextCurrent(window);
 
-    // Инициализация состояния приложения
+    // Г€Г­ГЁГ¶ГЁГ Г«ГЁГ§Г Г¶ГЁГї Г±Г®Г±ГІГ®ГїГ­ГЁГї ГЇГ°ГЁГ«Г®Г¦ГҐГ­ГЁГї
     AppState state;
     initAppState(&state);
     
 
-    // Инициализация текста
+    // Г€Г­ГЁГ¶ГЁГ Г«ГЁГ§Г Г¶ГЁГї ГІГҐГЄГ±ГІГ 
     if (!initText(&state, "text/arial.ttf")) {
-        fprintf(stderr, "Не удалось загрузить шрифт\n");
+        fprintf(stderr, "ГЌГҐ ГіГ¤Г Г«Г®Г±Гј Г§Г ГЈГ°ГіГ§ГЁГІГј ГёГ°ГЁГґГІ\n");
         glfwTerminate();
         return -1;
     }
@@ -3358,13 +3358,13 @@ int main() {
     glfwSetCursorPosCallback(window, cursorPosCallback);
     glfwSetKeyCallback(window, keyCallback);
 
-    // Основной цикл рендеринга
+    // ГЋГ±Г­Г®ГўГ­Г®Г© Г¶ГЁГЄГ« Г°ГҐГ­Г¤ГҐГ°ГЁГ­ГЈГ 
     while (!glfwWindowShouldClose(window)) {
-        // Очистка буфера
+        // ГЋГ·ГЁГ±ГІГЄГ  ГЎГіГґГҐГ°Г 
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // Получаем размеры окна
+        // ГЏГ®Г«ГіГ·Г ГҐГ¬ Г°Г Г§Г¬ГҐГ°Г» Г®ГЄГ­Г 
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
         glViewport(0, 0, width, height);
@@ -3373,23 +3373,23 @@ int main() {
         glfwGetCursorPos(window, &mouseX, &mouseY);
 
         if (state.saveNotificationTimer > 0.0f) {
-            state.saveNotificationTimer -= 0.005f; // Уменьшаем на время кадра 
+            state.saveNotificationTimer -= 0.005f; // Г“Г¬ГҐГ­ГјГёГ ГҐГ¬ Г­Г  ГўГ°ГҐГ¬Гї ГЄГ Г¤Г°Г  
         }
         
 
 
-        // Выбираем что отрисовывать в зависимости от состояния
+        // Г‚Г»ГЎГЁГ°Г ГҐГ¬ Г·ГІГ® Г®ГІГ°ГЁГ±Г®ГўГ»ГўГ ГІГј Гў Г§Г ГўГЁГ±ГЁГ¬Г®Г±ГІГЁ Г®ГІ Г±Г®Г±ГІГ®ГїГ­ГЁГї
         switch (state.currentState) {
         case MENU_MAIN:
             drawMainMenu(&state);
             break;
 
         case MENU_GAME: {
-            // Устанавливаем матрицу проекции
+            // Г“Г±ГІГ Г­Г ГўГ«ГЁГўГ ГҐГ¬ Г¬Г ГІГ°ГЁГ¶Гі ГЇГ°Г®ГҐГЄГ¶ГЁГЁ
             glMatrixMode(GL_PROJECTION);
             glLoadIdentity();
 
-            // Рассчитываем видимую область
+            // ГђГ Г±Г±Г·ГЁГІГ»ГўГ ГҐГ¬ ГўГЁГ¤ГЁГ¬ГіГѕ Г®ГЎГ«Г Г±ГІГј
             float aspectRatio = (float)width / (float)height;
             float visibleLeft = -1.0f * state.camera.zoom * aspectRatio + state.camera.offsetX;
             float visibleRight = 1.0f * state.camera.zoom * aspectRatio + state.camera.offsetX;
@@ -3398,46 +3398,46 @@ int main() {
 
             glOrtho(visibleLeft, visibleRight, visibleBottom, visibleTop, -1.0, 1.0);
 
-            // Устанавливаем матрицу модели
+            // Г“Г±ГІГ Г­Г ГўГ«ГЁГўГ ГҐГ¬ Г¬Г ГІГ°ГЁГ¶Гі Г¬Г®Г¤ГҐГ«ГЁ
             glMatrixMode(GL_MODELVIEW);
             glLoadIdentity();
             glColor3f(0.0, 0.0, 0.0);
 
-            // Отрисовываем поле
+            // ГЋГІГ°ГЁГ±Г®ГўГ»ГўГ ГҐГ¬ ГЇГ®Г«ГҐ
             drawGrid(visibleLeft, visibleRight, visibleBottom, visibleTop, state.camera.zoom, state.settings.fieldSize);
 
-            // Отрисовываем выбранную клетку
+            // ГЋГІГ°ГЁГ±Г®ГўГ»ГўГ ГҐГ¬ ГўГ»ГЎГ°Г Г­Г­ГіГѕ ГЄГ«ГҐГІГЄГі
             float cellSize = 2.0f / (10.0f * state.camera.zoom);
             drawSelectedCell(state.selectedCellX, state.selectedCellY, cellSize);
 
-            // Отрисовываем символы
+            // ГЋГІГ°ГЁГ±Г®ГўГ»ГўГ ГҐГ¬ Г±ГЁГ¬ГўГ®Г«Г»
             for (int i = 0; i < state.grid.size; i++) {
                 float x1 = state.grid.cells[i].x * cellSize;
                 float y1 = state.grid.cells[i].y * cellSize;
                 float x2 = x1 + cellSize;
                 float y2 = y1 + cellSize;
                 
-                if (state.grid.cells[i].symbol == 1) { // Крестик 
+                if (state.grid.cells[i].symbol == 1) { // ГЉГ°ГҐГ±ГІГЁГЄ 
                     drawCross(x1, y1, x2, y2);
                 }
-                else if (state.grid.cells[i].symbol == 2) { // Нолик
+                else if (state.grid.cells[i].symbol == 2) { // ГЌГ®Г«ГЁГЄ
                     drawCircle(x1, y1, x2, y2);
                 }
             }
             if (state.currentState == MENU_SETTINGS) {
                 drawSettingsScreen(&state, window);
         }
-            if (state.saveNotificationTimer > 0.0f) { // таймер уведы о сейве
+            if (state.saveNotificationTimer > 0.0f) { // ГІГ Г©Г¬ГҐГ° ГіГўГҐГ¤Г» Г® Г±ГҐГ©ГўГҐ
                 drawSaveNotification(&state, width, height);
             }
-            if (state.gameResult.rawResult  != 0) { // победная линия
+            if (state.gameResult.rawResult  != 0) { // ГЇГ®ГЎГҐГ¤Г­Г Гї Г«ГЁГ­ГЁГї
                 drawWinLine(&state, width, height);
                 if (state.gameResult.isDraw != 1) {
                     drawWinningLine(&state);
                 }
             }
 
-            // Рисуем подсказку о помощи (только если сама помощь не отображается)
+            // ГђГЁГ±ГіГҐГ¬ ГЇГ®Г¤Г±ГЄГ Г§ГЄГі Г® ГЇГ®Г¬Г®Г№ГЁ (ГІГ®Г«ГјГЄГ® ГҐГ±Г«ГЁ Г±Г Г¬Г  ГЇГ®Г¬Г®Г№Гј Г­ГҐ Г®ГІГ®ГЎГ°Г Г¦Г ГҐГІГ±Гї)
             if (!state.showHelp) {
                 drawHelpHint(&state, width, height);
             }
@@ -3446,7 +3446,7 @@ int main() {
                 drawMoveLog(&state);
             }
 
-            // Если нужно показать помощь, рисуем поверх всего
+            // Г…Г±Г«ГЁ Г­ГіГ¦Г­Г® ГЇГ®ГЄГ Г§Г ГІГј ГЇГ®Г¬Г®Г№Гј, Г°ГЁГ±ГіГҐГ¬ ГЇГ®ГўГҐГ°Гµ ГўГ±ГҐГЈГ®
             if (state.showHelp) {
                 drawHelpWindow(&state);
             }
@@ -3462,12 +3462,12 @@ int main() {
             break;
         }
 
-        // Меняем буферы и обрабатываем события
+        // ГЊГҐГ­ГїГҐГ¬ ГЎГіГґГҐГ°Г» ГЁ Г®ГЎГ°Г ГЎГ ГІГ»ГўГ ГҐГ¬ Г±Г®ГЎГ»ГІГЁГї
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
-    // Освобождаем ресурсы
+    // ГЋГ±ГўГ®ГЎГ®Г¦Г¤Г ГҐГ¬ Г°ГҐГ±ГіГ°Г±Г»
     glDeleteTextures(1, &state.fontTexture);
     cleanupGrid(&state.grid);
     cleanupMoveLogger(&state.logger);
