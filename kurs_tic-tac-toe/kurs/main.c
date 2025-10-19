@@ -143,6 +143,8 @@ void makeAIMoveMedium(AppState* state);
 void makeAIMoveHard(AppState* state);
 void makeAIMoveExpert(AppState* state);
 
+void benchmarkWinConditionCheck(AppState* state);
+
 
 
 
@@ -718,6 +720,7 @@ void drawAboutScreen(AppState* state) {
         float y = 900.0f - i * 100.0f;
         renderText(state, lines[i], x, y, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
     }
+    
 }
 
 
@@ -1683,6 +1686,9 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         case GLFW_KEY_UP:
             state->menuSelectedItem = (state->menuSelectedItem - 1 + 4) % 4; // По желанию в будущем замеить значения menuSelectedItem на enum
             break;
+        case GLFW_KEY_T:
+            benchmarkWinConditionCheck(state);
+            break;
         case GLFW_KEY_DOWN:
             state->menuSelectedItem = (state->menuSelectedItem + 1) % 4;
             break;
@@ -1760,6 +1766,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             state->showHelp = 1;
             break;
         }
+        
     }
     else if (state->currentState == MENU_GAME) {
         switch (key) {
@@ -3317,6 +3324,48 @@ void makeAIMoveExpert(AppState* state) {
     // 5. Если все остальное не сработало, используем стратегию из сложного уровня
     makeAIMoveHard(state);
 }
+
+
+/*                                  Бенчмарки                   */
+void setupAlmostWinningPosition(AppState* state, int symbol) {
+    // Создает почти выигрышную позицию
+    cleanupGrid(&state->grid);
+    for (int i = 0; i < state->settings.winLineLength - 1; i++) {
+        addCell(&state->grid, i, 0);
+        state->grid.cells[i].symbol = symbol;
+    }
+}
+
+void benchmarkWinConditionCheck(AppState* state) {
+    // Тестируем на полях разного размера
+    int fieldSizes[] = { 3, 5, 10, 15, 3000 };
+    int winLengths[] = { 3, 4, 5, 7, 15, 30 };
+
+    for (int s = 0; s < 5; s++) { // size
+        for (int w = 0; w < 6; w++) { // win
+            if (winLengths[w] > fieldSizes[s]) continue;
+
+            state->settings.fieldSize = fieldSizes[s];
+            state->settings.winLineLength = winLengths[w];
+
+            // Создаем почти выигрышную позицию
+            setupAlmostWinningPosition(state, 1); // для крестиков
+
+            clock_t start = clock();
+            int checks = 10000;
+            for (int i = 0; i < checks; i++) {
+                checkWinCondition(state, 1, winLengths[w]);
+            }
+            clock_t end = clock();
+
+            printf("Win check %dx%d (line=%d): %f ns per check\n",
+                fieldSizes[s], fieldSizes[s], winLengths[w],
+                ((double)(end - start) * 1000000) / (checks * CLOCKS_PER_SEC));
+        }
+    }
+    printf("\n\n");
+}
+
 
 
 
