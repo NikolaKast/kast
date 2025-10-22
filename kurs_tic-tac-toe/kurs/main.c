@@ -73,13 +73,13 @@ typedef struct {
 typedef struct {
     double lastX;       // Последняя позиция X
     double lastY;       // Последняя позиция Y
-    int isDragging:2;     // Флаг перетаскивания
+    int isDragging : 2;     // Флаг перетаскивания
 } MouseState;
 
 // Клетка игрового поля
 typedef struct {
     int x, y;          // Координаты
-    short int symbol:3;   // Символ (0 - пусто, 1 - крестик, 2 - нолик)
+    short int symbol : 3;   // Символ (0 - пусто, 1 - крестик, 2 - нолик)
 } Cell;
 
 // Игровое поле
@@ -105,9 +105,9 @@ typedef struct {
     int selectedCellX;          // Выбранная клетка X
     int selectedCellY;          // Выбранная клетка Y
     AppMenuState currentState;  // Текущее состояние меню
-    int menuSelectedItem:3;       // Выбранный пункт главного меню
-    int showHelp:2;               // Показать справку
-    int settingsSelectedItem:3;   // Выбранный пункт настроек
+    int menuSelectedItem : 3;       // Выбранный пункт главного меню
+    int showHelp : 2;               // Показать справку
+    int settingsSelectedItem : 3;   // Выбранный пункт настроек
 
     stbtt_bakedchar cdata[96];  // Данные шрифта
     GLuint fontTexture;         // Текстура шрифта
@@ -143,11 +143,14 @@ void makeAIMoveMedium(AppState* state);
 void makeAIMoveHard(AppState* state);
 void makeAIMoveExpert(AppState* state);
 
+void benchmarkWinConditionCheck(AppState* state);
+
+void runExpertBotBenchmark(AppState* state, int testNumber);
+void handleBenchmarkKeys(AppState* state, int key);
 
 
 
-
-                                            /*                                     ГРАФИКА                                                */
+/*                                     ГРАФИКА                                                */
 
 
 
@@ -195,8 +198,8 @@ void initAppState(AppState* state) {
     state->logger.count = 0;
     state->showMoveLog = 0;  // По умолчанию окно скрыто
 
-    
-    
+
+
     // Настройки по умолчанию
     state->settings.difficulty = DIFFICULTY_EASY;
     state->settings.fieldSize = 0;      // Бесконечное поле
@@ -269,7 +272,7 @@ void cleanupGrid(Grid* grid) {
     }
     grid->size = 0;
     grid->capacity = 0;
-  
+
 }
 
 
@@ -395,21 +398,21 @@ int initText(AppState* state, const char* fontPath) {
     glGenTextures(1, &state->fontTexture);
     glBindTexture(GL_TEXTURE_2D, state->fontTexture);
 
-    
+
     unsigned char* rgbaBitmap = (unsigned char*)malloc((long long int)texWidth * texHeight * 4);
-    for(int i = 0; i < texWidth * texHeight; i++) {
+    for (int i = 0; i < texWidth * texHeight; i++) {
         if (rgbaBitmap == NULL) {
             break;
         }
-        rgbaBitmap[i*4] = 255;
-        rgbaBitmap[i*4+1] = 255;
-        rgbaBitmap[i*4+2] = 255;
-        rgbaBitmap[i*4+3] = tempBitmap[i];
+        rgbaBitmap[i * 4] = 255;
+        rgbaBitmap[i * 4 + 1] = 255;
+        rgbaBitmap[i * 4 + 2] = 255;
+        rgbaBitmap[i * 4 + 3] = tempBitmap[i];
     }
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texWidth, texHeight,
-                0, GL_RGBA, GL_UNSIGNED_BYTE, rgbaBitmap);
+        0, GL_RGBA, GL_UNSIGNED_BYTE, rgbaBitmap);
     free(rgbaBitmap);
-    
+
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -504,23 +507,23 @@ void renderText(AppState* state, const char* text, float x, float y, float scale
     glPushMatrix();
     glLoadIdentity();
     glTranslatef(x, y, 0);
-    glScalef(scale, -scale, 1.0f); 
+    glScalef(scale, -scale, 1.0f);
 
     glBegin(GL_QUADS);
-    glColor4f(r, g, b, a); 
+    glColor4f(r, g, b, a);
 
     float startX = 0;
     float drawY = 0;
     while (*text) {
-        
-            stbtt_aligned_quad q;
-            stbtt_GetBakedQuad(state->cdata, 512, 512, *text - 32, &startX, &drawY, &q, 1);
 
-            glTexCoord2f(q.s0, q.t0); glVertex2f(q.x0, q.y0);
-            glTexCoord2f(q.s1, q.t0); glVertex2f(q.x1, q.y0);
-            glTexCoord2f(q.s1, q.t1); glVertex2f(q.x1, q.y1);
-            glTexCoord2f(q.s0, q.t1); glVertex2f(q.x0, q.y1);
-        
+        stbtt_aligned_quad q;
+        stbtt_GetBakedQuad(state->cdata, 512, 512, *text - 32, &startX, &drawY, &q, 1);
+
+        glTexCoord2f(q.s0, q.t0); glVertex2f(q.x0, q.y0);
+        glTexCoord2f(q.s1, q.t0); glVertex2f(q.x1, q.y0);
+        glTexCoord2f(q.s1, q.t1); glVertex2f(q.x1, q.y1);
+        glTexCoord2f(q.s0, q.t1); glVertex2f(q.x0, q.y1);
+
         ++text;
     }
 
@@ -579,7 +582,7 @@ void drawSaveNotification(AppState* state, int width, int height) {
     float textAlpha = state->saveNotificationTimer / 1.0f;
     renderText(state, "Game saved successfully!",
         notifX + 20, notifY + 35,
-        0.7f, 1.0f, 1.0f, 1.0f, textAlpha); 
+        0.7f, 1.0f, 1.0f, 1.0f, textAlpha);
 
     // Восстанавливаем матрицы
     glMatrixMode(GL_PROJECTION);
@@ -611,9 +614,9 @@ void drawMainMenu(AppState* state) {
     const char* title = "Krestiki-Noliki";
     const char* p = title;
     while (*p) {
-        
-            titleWidth += state->cdata[*p - 32].xadvance;
-        
+
+        titleWidth += state->cdata[*p - 32].xadvance;
+
         p++;
     }
     renderText(state, title, (1240 - titleWidth * 1.5f) / 2, 1000, 1.5f, 1.0f, 1.0f, 1.0f, 1.0f);
@@ -653,9 +656,9 @@ void drawMainMenu(AppState* state) {
         float textWidth = 0;
         p = items[i];
         while (*p) {
-            
-                textWidth += state->cdata[*p - 32].xadvance;
-            
+
+            textWidth += state->cdata[*p - 32].xadvance;
+
             p++;
         }
         float textX = x + (width - textWidth * 0.8f) / 2;
@@ -686,9 +689,9 @@ void drawAboutScreen(AppState* state) {
     const char* title = "About";
     const char* p = title;
     while (*p) {
-        
-            titleWidth += state->cdata[*p - 32].xadvance;
-        
+
+        titleWidth += state->cdata[*p - 32].xadvance;
+
         p++;
     }
     renderText(state, title, (1240 - titleWidth * 1.5f) / 2, 1000, 1.5f, 1.0f, 1.0f, 1.0f, 1.0f);
@@ -709,15 +712,16 @@ void drawAboutScreen(AppState* state) {
         float textWidth = 0;
         p = lines[i];
         while (*p) {
-            
-                textWidth += state->cdata[*p - 32].xadvance;
-            
+
+            textWidth += state->cdata[*p - 32].xadvance;
+
             p++;
         }
         float x = (1240 - textWidth * 1.0f) / 2;
         float y = 900.0f - i * 100.0f;
         renderText(state, lines[i], x, y, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
     }
+
 }
 
 
@@ -803,7 +807,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
         float textWidth = 0;
         const char* p = difficultyOptions[i];
         while (*p) {
-             textWidth += state->cdata[*p - 32].xadvance;
+            textWidth += state->cdata[*p - 32].xadvance;
             p++;
         }
         renderText(state, difficultyOptions[i],
@@ -1105,7 +1109,7 @@ void handleSettingsClick(AppState* state, GLFWwindow* window, int button) {
             return;
         }
     }
-    
+
 
     //  Проверка клика по кнопке сохранения
     yPos -= 150;
@@ -1543,13 +1547,13 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                         state->currentState = MENU_GAME;
                         state->gameResult.rawResult = 0;
                         int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
-                        
+
                         // Если бот ходит первым, делаем его ход сразу
                         if (state->settings.firstMove == FIRST_MOVE_AI) {
                             // Специальная логика для первого хода бота
-                                addCell(&state->grid, 0, 0);
-                                state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
-                                logMove(&state->logger, 0, 0, MOVE_AI);
+                            addCell(&state->grid, 0, 0);
+                            state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
+                            logMove(&state->logger, 0, 0, MOVE_AI);
                         }
 
                     }
@@ -1562,11 +1566,11 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                             state->selectedCellX = 0;
                             state->selectedCellY = 0;
                             state->gameResult.rawResult = 0;
-                            
+
                             int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
                             int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
 
-                            
+
 
                             if (checkWinCondition(state, playerSymbol, state->settings.winLineLength)) {
                                 state->gameResult.isWin = 1;
@@ -1602,7 +1606,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
         state->mouse.isDragging = 0;
     }
-    
+
 }
 
 // Обработка перемещения курсора
@@ -1630,7 +1634,7 @@ void cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
         // Проверяем, какая кнопка под курсором
         if (menuX >= 500 && menuX <= 740) { // Ширина кнопки 240
             if (menuY >= 800 && menuY <= 880) { // New Game (первая кнопка)
-                
+
                 state->menuSelectedItem = 0;
 
             }
@@ -1679,9 +1683,16 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     }
 
     if (state->currentState == MENU_MAIN) {
+        if (key >= GLFW_KEY_1 && key <= GLFW_KEY_5) {
+            handleBenchmarkKeys(state, key);
+            return;
+        }
         switch (key) {
         case GLFW_KEY_UP:
             state->menuSelectedItem = (state->menuSelectedItem - 1 + 4) % 4; // По желанию в будущем замеить значения menuSelectedItem на enum
+            break;
+        case GLFW_KEY_T:
+            benchmarkWinConditionCheck(state);
             break;
         case GLFW_KEY_DOWN:
             state->menuSelectedItem = (state->menuSelectedItem + 1) % 4;
@@ -1760,6 +1771,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             state->showHelp = 1;
             break;
         }
+
     }
     else if (state->currentState == MENU_GAME) {
         switch (key) {
@@ -1911,7 +1923,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             state->showHelp = 1;
         }
     }
-   
+
 }
 
 // Отрисовка победнго сообщения
@@ -2049,7 +2061,7 @@ void drawWinningLine(AppState* state) {
 
 
 
-                                                    /*                         АЛГОРИТМЫ                                  */
+/*                         АЛГОРИТМЫ                                  */
 
 
 // Проверка, есть ли выигрышная линия из symbol заданной длины
@@ -2119,7 +2131,7 @@ int checkWinCondition(AppState* state, int symbol, int winLength) {
 
 // Функция для хода бота (легкий уровень), условно рандом в радиусе длины победной линии
 void makeAIMoveEasy(AppState* state) {
-    
+
     int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
     int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
     if (state->grid.size == 0) {
@@ -2136,7 +2148,7 @@ void makeAIMoveEasy(AppState* state) {
         if (state->grid.cells[i].symbol == playerSymbol) crossCount++;
     }
 
-    
+
 
     // Выбираем случайный
     int randomCrossIndex = rand() % crossCount;
@@ -2252,7 +2264,7 @@ void makeAIMoveEasy(AppState* state) {
 
 // Бот средней сложности меньше рандома, видит очевидные угрозы
 void makeAIMoveMedium(AppState* state) {
-    
+
 
     int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
     int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
@@ -2548,7 +2560,7 @@ void makeAIMoveMedium(AppState* state) {
 
 // Бот сложного уровня, работает на эвристиках, довольно эффективен, подробнее в отчете
 void makeAIMoveHard(AppState* state) {
-    
+
 
     int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
     int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
@@ -2805,7 +2817,7 @@ void makeAIMoveHard(AppState* state) {
         return;
     }
 
-    
+
 
     // 5. Если ничего стратегического не найдено, делаем ход рядом с существующими ноликами
     for (int i = 0; i < state->grid.size; i++) {
@@ -2857,7 +2869,7 @@ void makeAIMoveHard(AppState* state) {
 // Вспомогательная функция для оценки позиции (для минимакса)
 int evaluatePosition(AppState* state, int symbol, int opponentSymbol) {
     int score = 0;
-    
+
 
     // Проверяем все клетки с нашим символом
     for (int i = 0; i < state->grid.size; i++) {
@@ -3294,7 +3306,7 @@ void makeAIMoveExpert(AppState* state) {
             minimax(state, 3, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
         }
     }
-    
+
     if (bestX != 0 || bestY != 0) {
         int cellFree = 1;
         for (int i = 0; i < state->grid.size; i++) {
@@ -3319,11 +3331,127 @@ void makeAIMoveExpert(AppState* state) {
 }
 
 
+/*                                  Бенчмарки                   */
+void setupAlmostWinningPosition(AppState* state, int symbol) {
+    // Создает почти выигрышную позицию
+    cleanupGrid(&state->grid);
+    for (int i = 0; i < state->settings.winLineLength - 1; i++) {
+        addCell(&state->grid, i, 0);
+        state->grid.cells[i].symbol = symbol;
+    }
+}
+
+void benchmarkWinConditionCheck(AppState* state) {
+    // Тестируем на полях разного размера
+    int fieldSizes[] = { 3, 5, 10, 15, 3000 };
+    int winLengths[] = { 3, 4, 5, 7, 15, 30 };
+
+    for (int s = 0; s < 5; s++) { // size
+        for (int w = 0; w < 6; w++) { // win
+            if (winLengths[w] > fieldSizes[s]) continue;
+
+            state->settings.fieldSize = fieldSizes[s];
+            state->settings.winLineLength = winLengths[w];
+
+            // Создаем почти выигрышную позицию
+            setupAlmostWinningPosition(state, 1); // для крестиков
+
+            clock_t start = clock();
+            int checks = 10000;
+            for (int i = 0; i < checks; i++) {
+                checkWinCondition(state, 1, winLengths[w]);
+            }
+            clock_t end = clock();
+
+            printf("Win check %dx%d (line=%d): %f ns per check\n",
+                fieldSizes[s], fieldSizes[s], winLengths[w],
+                ((double)(end - start) * 1000000) / (checks * CLOCKS_PER_SEC));
+        }
+    }
+    printf("\n\n");
+}
+
+
+/* Бенчмарк для измерения времени хода бота экспертного уровня */
+void runExpertBotBenchmark(AppState* state, int testNumber) {
+    char filename[32];
+    snprintf(filename, sizeof(filename), "test_%d.txt", testNumber);
+
+    FILE* file = fopen(filename, "r");
+    if (!file) {
+        printf("Error: Could not open file %s\n", filename);
+        return;
+    }
+
+    // Загружаем настройки из файла
+    char line[256];
+    if (fgets(line, sizeof(line), file)) {
+        if (strncmp(line, "SETTINGS", 8) == 0) {
+            int temp1, temp2;
+            int check = sscanf(line + 8, "%d %d %d %d",
+                &temp1,
+                &state->settings.fieldSize,
+                &state->settings.winLineLength,
+                &temp2);
+            state->settings.difficulty = DIFFICULTY_EXPERT;
+            state->settings.firstMove = (FirstMove)temp2;
+
+            if (check < 4) {
+                state->settings.firstMove = FIRST_MOVE_PLAYER;
+            }
+        }
+    }
+
+    // Очищаем текущее поле и загружаем позицию
+    cleanupGrid(&state->grid);
+    cleanupMoveLogger(&state->logger);
+
+    int x, y, symbol;
+    while (fscanf(file, "%d %d %d", &x, &y, &symbol) == 3) {
+        addCell(&state->grid, x, y);
+        state->grid.cells[state->grid.size - 1].symbol = symbol;
+    }
+    fclose(file);
+
+    // Устанавливаем, что следующий ход - бота (нолика)
+    int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
+
+    printf("=== Benchmark Test %d ===\n", testNumber);
+    printf("Field size: %d, Win line: %d\n",
+        state->settings.fieldSize, state->settings.winLineLength);
+    printf("Position loaded: %d cells\n", state->grid.size);
+
+    // Измеряем время хода бота
+    clock_t start_time = clock();
+
+    makeAIMoveExpert(state);
+
+    clock_t end_time = clock();
+    double time_taken = ((double)(end_time - start_time)) / CLOCKS_PER_SEC * 1000.0;
+
+    // Находим ход, который сделал бот (последняя добавленная клетка)
+    int botMoveX = 0, botMoveY = 0;
+    if (state->grid.size > 0) {
+        botMoveX = state->grid.cells[state->grid.size - 1].x;
+        botMoveY = state->grid.cells[state->grid.size - 1].y;
+    }
+
+    printf("Bot move: (%d, %d)\n", botMoveX, botMoveY);
+    printf("Time taken: %.3f ms\n\n", time_taken);
+}
+
+// Обработка нажатий цифр для бенчмарка
+void handleBenchmarkKeys(AppState* state, int key) {
+    if (key >= GLFW_KEY_1 && key <= GLFW_KEY_5) {
+        int testNumber = key - GLFW_KEY_1 + 1;
+        runExpertBotBenchmark(state, testNumber);
+    }
+}
 
 int main() {
-    
-    
-    
+
+
+
     // Инициализация GLFW
     if (!glfwInit()) {
         fprintf(stderr, "Ошибка инициализации GLFW\n");
@@ -3344,7 +3472,7 @@ int main() {
     // Инициализация состояния приложения
     AppState state;
     initAppState(&state);
-    
+
 
     // Инициализация текста
     if (!initText(&state, "text/arial.ttf")) {
@@ -3376,7 +3504,7 @@ int main() {
         if (state.saveNotificationTimer > 0.0f) {
             state.saveNotificationTimer -= 0.005f; // Уменьшаем на время кадра 
         }
-        
+
 
 
         // Выбираем что отрисовывать в зависимости от состояния
@@ -3417,7 +3545,7 @@ int main() {
                 float y1 = state.grid.cells[i].y * cellSize;
                 float x2 = x1 + cellSize;
                 float y2 = y1 + cellSize;
-                
+
                 if (state.grid.cells[i].symbol == 1) { // Крестик 
                     drawCross(x1, y1, x2, y2);
                 }
@@ -3427,11 +3555,11 @@ int main() {
             }
             if (state.currentState == MENU_SETTINGS) {
                 drawSettingsScreen(&state, window);
-        }
+            }
             if (state.saveNotificationTimer > 0.0f) { // таймер уведы о сейве
                 drawSaveNotification(&state, width, height);
             }
-            if (state.gameResult.rawResult  != 0) { // победная линия
+            if (state.gameResult.rawResult != 0) { // победная линия
                 drawWinLine(&state, width, height);
                 if (state.gameResult.isDraw != 1) {
                     drawWinningLine(&state);
@@ -3473,6 +3601,6 @@ int main() {
     cleanupGrid(&state.grid);
     cleanupMoveLogger(&state.logger);
     glfwTerminate();
-    
+
     return 0;
 }
