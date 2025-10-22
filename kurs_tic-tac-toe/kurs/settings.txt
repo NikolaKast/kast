@@ -1,4 +1,4 @@
-difficulty=3
-fieldSize=19
+difficulty=2
+fieldSize=0
 winLineLength=5
-firstMove=0
+firstMove=1

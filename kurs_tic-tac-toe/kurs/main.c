@@ -3276,7 +3276,7 @@ void makeAIMoveExpert(AppState* state) {
             }
         }
     }
-
+    
     // 4. Использовать минимакс для стратегических ходов
     int bestX = 0, bestY = 0;
     if (state->settings.fieldSize == 3) {
@@ -3325,7 +3325,6 @@ void makeAIMoveExpert(AppState* state) {
             return;
         }
     }
-
     // 5. Если все остальное не сработало, используем стратегию из сложного уровня
     makeAIMoveHard(state);
 }
