@@ -448,7 +448,7 @@ void saveGame(const Grid* grid, const GameSettings* settings) {
 
 
 // Загрузка игры
-int loadGame(Grid* grid, GameSettings* settings) {
+int loadGame(Grid* grid, GameSettings* settings, AppState* state) {
     FILE* file = fopen("saves.txt", "r");
     if (!file) {
         file = fopen("saves.txt", "w");
@@ -457,6 +457,7 @@ int loadGame(Grid* grid, GameSettings* settings) {
     }
 
     cleanupGrid(grid);
+    cleanupMoveLogger(&state->logger); // Очищаем лог
 
     // Настройки из первой строки файла
     char line[256];
@@ -468,26 +469,37 @@ int loadGame(Grid* grid, GameSettings* settings) {
                 &temp1,
                 &settings->fieldSize,
                 &settings->winLineLength,
-                &temp2);  // Загружаем порядок хода
+                &temp2);
             settings->difficulty = (GameDifficulty)temp1;
             settings->firstMove = (FirstMove)temp2;
 
-            // Если не удалось прочитать firstMove (старый формат файла)
             if (check < 4) {
-                settings->firstMove = FIRST_MOVE_PLAYER; // Устанавливаем по умолчанию
+                settings->firstMove = FIRST_MOVE_PLAYER;
             }
         }
         else {
-            // Если файл старого формата, переходим в начало
             fseek(file, 0, SEEK_SET);
-            settings->firstMove = FIRST_MOVE_PLAYER; // Устанавливаем по умолчанию
+            settings->firstMove = FIRST_MOVE_PLAYER;
         }
     }
 
     int x, y, symbol;
+    int lastX = 0, lastY = 0, lastSymbol = 0;
+
+    // Читаем все ходы и запоминаем последний
     while (fscanf(file, "%d %d %d", &x, &y, &symbol) == 3) {
         addCell(grid, x, y);
         grid->cells[grid->size - 1].symbol = symbol;
+
+        // Запоминаем последний ход
+        lastX = x;
+        lastY = y;
+        lastSymbol = symbol;
+
+        // Также добавляем в лог
+        MoveType moveType = (symbol == ((settings->firstMove == FIRST_MOVE_PLAYER) ? 1 : 2))
+            ? MOVE_PLAYER : MOVE_AI;
+        logMove(&state->logger, x, y, moveType);
     }
 
     fclose(file);
@@ -1561,7 +1573,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
                 else if (menuY >= 600 && menuY <= 680) { // Load Game (вторая кнопка)
                     state->menuSelectedItem = 1;
                     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-                        if (loadGame(&state->grid, &state->settings)) {
+                        if (loadGame(&state->grid, &state->settings, state)) {
                             state->currentState = MENU_GAME;
                             state->selectedCellX = 0;
                             state->selectedCellY = 0;
@@ -1731,7 +1743,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
                 }
                 break;
             case 1: // Load Game
-                if (loadGame(&state->grid, &state->settings)) {
+                if (loadGame(&state->grid, &state->settings, state)) {
                     state->currentState = MENU_GAME;
                     state->selectedCellX = 0;
                     state->selectedCellY = 0;
@@ -2066,6 +2078,8 @@ void drawWinningLine(AppState* state) {
 
 // Проверка, есть ли выигрышная линия из symbol заданной длины
 int checkWinCondition(AppState* state, int symbol, int winLength) {
+    /*
+    // СТАРАЯ РЕАЛИЗАЦИЯ (полная проверка всего поля)
     for (int i = 0; i < state->grid.size; i++) {
         if (state->grid.cells[i].symbol != symbol) continue;
 
@@ -2122,6 +2136,72 @@ int checkWinCondition(AppState* state, int symbol, int winLength) {
                 state->winLineEndY = endY;
                 return 1;
             }
+        }
+    }
+    return 0;
+    */
+
+    // НОВАЯ РЕАЛИЗАЦИЯ - проверка только последнего хода
+    if (state->grid.size == 0) return 0;
+    
+    // Всегда берем последний ход из лога
+    if (state->logger.tail == NULL) {
+        return 0; // Нет ходов вообще
+    }
+
+    int lastX = state->logger.tail->x;
+    int lastY = state->logger.tail->y;
+
+    // Проверяем все направления от последнего хода
+    int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
+
+    for (int d = 0; d < 4; d++) {
+        int dx = directions[d][0];
+        int dy = directions[d][1];
+        int count = 1;
+        int startX = lastX, startY = lastY;
+        int endX = lastX, endY = lastY;
+
+        // Проверяем в одном направлении
+        for (int step = 1; step < winLength; step++) {
+            int found = 0;
+            for (int j = 0; j < state->grid.size; j++) {
+                if (state->grid.cells[j].x == lastX + dx * step &&
+                    state->grid.cells[j].y == lastY + dy * step &&
+                    state->grid.cells[j].symbol == symbol) {
+                    found = 1;
+                    endX = lastX + dx * step;
+                    endY = lastY + dy * step;
+                    break;
+                }
+            }
+            if (!found) break;
+            count++;
+        }
+
+        // Проверяем в противоположном направлении
+        for (int step = 1; step < winLength; step++) {
+            int found = 0;
+            for (int j = 0; j < state->grid.size; j++) {
+                if (state->grid.cells[j].x == lastX - dx * step &&
+                    state->grid.cells[j].y == lastY - dy * step &&
+                    state->grid.cells[j].symbol == symbol) {
+                    found = 1;
+                    startX = lastX - dx * step;
+                    startY = lastY - dy * step;
+                    break;
+                }
+            }
+            if (!found) break;
+            count++;
+        }
+
+        if (count >= winLength) {
+            state->winLineStartX = startX;
+            state->winLineStartY = startY;
+            state->winLineEndX = endX;
+            state->winLineEndY = endY;
+            return 1;
         }
     }
     return 0;
