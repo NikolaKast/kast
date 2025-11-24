@@ -1,0 +1,1839 @@
+﻿#define _CRT_SECURE_NO_WARNINGS
+#include "include/GLFW/glfw3.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "text/stb_truetype.h"
+// Библиотека для отрисовки буковок и чиселок, дополнительно подгружен шрифт arial.ttf
+// Тестовый комментарий для гита
+// проверяем гитхабчик
+
+
+                                                    /*                                СТРУКТУРЫ                                     */
+// Состояния меню приложения
+typedef enum {
+    MENU_MAIN,     // Главное меню
+    MENU_GAME,     // Игровой экран
+    MENU_ABOUT,    // Экран "О программе"
+    MENU_SETTINGS  // Экран настроек
+} AppMenuState;
+
+// Уровни сложности игры
+typedef enum {
+    DIFFICULTY_EASY,    // Легкий
+    DIFFICULTY_MEDIUM,  // Средний
+    DIFFICULTY_HARD,    // Сложный
+    DIFFICULTY_EXPERT   // Эксперт
+} GameDifficulty;
+
+typedef enum {
+    GAME_RESULT_NONE = 0,   // Игра продолжается
+    GAME_RESULT_WIN = 1,    // Победа
+    GAME_RESULT_LOSE = -1,  // Поражение
+    GAME_RESULT_DRAW = 2    // Ничья
+} GameResultType;
+
+// Тип хода (игрок/бот)
+typedef enum {
+    MOVE_PLAYER,  // Ход игрока (крестик)
+    MOVE_AI       // Ход бота (нолик)
+} MoveType;
+
+typedef enum {
+    FIRST_MOVE_PLAYER,  // Игрок ходит первым (крестики)
+    FIRST_MOVE_AI       // Бот ходит первым (нолики)
+} FirstMove;
+
+// Элемент очереди
+typedef struct MoveLog {
+    int x, y;           // Координаты
+    MoveType type;       // Тип хода
+    struct MoveLog* next;
+} MoveLog;
+
+// Очередь (FIFO)
+typedef struct {
+    MoveLog* head;       // Первый элемент
+    MoveLog* tail;       // Последний элемент
+    int count;           // Текущее количество (макс 6)
+} MoveLogger;
+
+// Камера для управления видом игрового поля
+typedef struct {
+    float zoom;     // Масштаб
+    float offsetX;  // Смещение по X
+    float offsetY;  // Смещение по Y
+} Camera;
+
+// Состояние мыши
+typedef struct {
+    double lastX;       // Последняя позиция X
+    double lastY;       // Последняя позиция Y
+    int isDragging : 2;     // Флаг перетаскивания
+} MouseState;
+
+// Клетка игрового поля
+typedef struct {
+    int x, y;          // Координаты
+    short int symbol : 3;   // Символ (0 - пусто, 1 - крестик, 2 - нолик)
+} Cell;
+
+// Игровое поле
+typedef struct {
+    Cell* cells;    // Массив клеток
+    int size;       // Текущий размер
+    int capacity;   // Выделенная память
+} Grid;
+
+// Настройки игры
+typedef struct {
+    GameDifficulty difficulty;  // Уровень сложности(4)
+    int fieldSize;             // Размер поля (0 - бесконечное)
+    int winLineLength;         // Длина выигрышной линии (минимум 3)
+    FirstMove firstMove;       // Кто ходит первым
+} GameSettings;
+
+// Основное состояние приложения
+typedef struct {
+    Camera camera;              // Камера
+    MouseState mouse;           // Состояние мыши
+    Grid grid;                  // Игровое поле
+    int selectedCellX;          // Выбранная клетка X
+    int selectedCellY;          // Выбранная клетка Y
+    AppMenuState currentState;  // Текущее состояние меню
+    int menuSelectedItem : 3;       // Выбранный пункт главного меню
+    int showHelp : 2;               // Показать справку
+    int settingsSelectedItem : 3;   // Выбранный пункт настроек
+
+    stbtt_bakedchar cdata[96];  // Данные шрифта
+    GLuint fontTexture;         // Текстура шрифта
+    float fontSize;             // Размер шрифта
+    float saveNotificationTimer;// Таймер уведомления о сохранении
+
+    GameSettings settings;       // Текущие настройки
+    GameSettings defaultSettings; // Настройки из settings.txt
+
+
+    union {
+        int rawResult;                  // Доступ как к числу (для совместимости)
+        GameResultType resultType;       // Типизированный доступ
+        struct {
+            unsigned int isWin : 1;        // Флаг победы
+            unsigned int isLose : 1;       // Флаг поражения
+            unsigned int isDraw : 1;       // Флаг ничьи
+        };
+    } gameResult;
+    int winLineStartX;       // Начало линии (координаты клетки)
+    int winLineStartY;
+    int winLineEndX;         // Конец линии (координаты клетки)
+    int winLineEndY;
+
+    MoveLogger logger;  // Логгер ходов
+    int showMoveLog;    // Флаг для отображения окна (1 - показать, 0 - скрыть)
+} AppState;
+
+
+// Прототипы функций для ботов
+void makeAIMoveEasy(AppState* state);
+void makeAIMoveMedium(AppState* state);
+void makeAIMoveHard(AppState* state);
+void makeAIMoveExpert(AppState* state);
+
+void benchmarkWinConditionCheck(AppState* state);
+
+void runExpertBotBenchmark(AppState* state, int testNumber);
+void handleBenchmarkKeys(AppState* state, int key);
+
+
+
+/*                                     ГРАФИКА                                                */
+
+
+
+
+// Прототип для сохранений
+void saveSettings(const GameSettings* settings);
+
+// Прототип чеков
+int checkWinCondition(AppState* state, int symbol, int winLength);
+int checkForDraw(AppState* state);
+
+// Инициализация состояния приложения
+void initAppState(AppState* state) {
+    // Настройки камеры
+    state->camera.zoom = 1.0f;
+    state->camera.offsetX = 0.0f;
+    state->camera.offsetY = 0.0f;
+
+    // Состояние мыши
+    state->mouse.lastX = 0.0;
+    state->mouse.lastY = 0.0;
+    state->mouse.isDragging = 0;
+
+    // Игровое поле
+    state->grid.cells = NULL;
+    state->grid.size = 0;
+    state->grid.capacity = 0;
+
+    // Выбранная клетка
+    state->selectedCellX = 0;
+    state->selectedCellY = 0;
+
+    // Состояние интерфейса
+    state->currentState = MENU_MAIN;
+    state->showHelp = 0;
+    state->menuSelectedItem = 0;
+    state->settingsSelectedItem = 0;
+    state->fontTexture = 0;
+    state->fontSize = 32.0f;
+    state->saveNotificationTimer = 0.0f;
+
+    // Логгер ходов
+    state->logger.head = NULL;
+    state->logger.tail = NULL;
+    state->logger.count = 0;
+    state->showMoveLog = 0;  // По умолчанию окно скрыто
+
+
+
+    // Настройки по умолчанию
+    state->settings.difficulty = DIFFICULTY_EASY;
+    state->settings.fieldSize = 0;      // Бесконечное поле
+    state->settings.winLineLength = 3;  // Выигрышная линия из 3 символов
+    state->settings.firstMove = FIRST_MOVE_PLAYER; // По умолчанию игрок ходит первым
+    FILE* settingsFile = fopen("settings.txt", "r");
+    if (settingsFile) {
+        char line[256];
+        while (fgets(line, sizeof(line), settingsFile)) {
+            if (strncmp(line, "difficulty=", 11) == 0) {
+                int diff = atoi(line + 11);
+                if (diff >= DIFFICULTY_EASY && diff <= DIFFICULTY_EXPERT) {
+                    state->settings.difficulty = diff;
+                }
+            }
+            else if (strncmp(line, "fieldSize=", 10) == 0) {
+                state->settings.fieldSize = atoi(line + 10);
+            }
+            else if (strncmp(line, "winLineLength=", 14) == 0) {
+                int length = atoi(line + 14);
+                state->settings.winLineLength = (length >= 3) ? length : 3;
+            }
+            else if (strncmp(line, "firstMove=", 10) == 0) {
+                int move = atoi(line + 10);
+                if (move == FIRST_MOVE_PLAYER || move == FIRST_MOVE_AI) {
+                    state->settings.firstMove = move;
+                }
+            }
+        }
+        fclose(settingsFile);
+    }
+    else {
+        // Если файла нет, создать его с дефолтными настройками
+        saveSettings(&state->settings);
+    }
+
+    // Установка текущих настройки равными дефолтным
+    state->defaultSettings = state->settings;
+
+    state->gameResult.rawResult = 0;          // 0 - нет результата, 1 - победа, -1 - поражение
+    state->winLineStartX = 0;       // Начало линии (координаты клетки)
+    state->winLineStartY = 0;
+    state->winLineEndX = 0;         // Конец линии (координаты клетки)
+    state->winLineEndY = 0;
+}
+
+
+
+// Сохранение настроек в файл
+void saveSettings(const GameSettings* settings) {
+    FILE* file = fopen("settings.txt", "w");
+    if (!file) {
+        fprintf(stderr, "Failed to save settings\n");
+        return;
+    }
+
+    fprintf(file, "difficulty=%d\n", settings->difficulty);
+    fprintf(file, "fieldSize=%d\n", settings->fieldSize);
+    fprintf(file, "winLineLength=%d\n", settings->winLineLength);
+    fprintf(file, "firstMove=%d\n", settings->firstMove);
+
+    fclose(file);
+}
+
+// Очищение поля
+void cleanupGrid(Grid* grid) {
+    if (grid->cells) {
+        free(grid->cells);
+        grid->cells = NULL;
+    }
+    grid->size = 0;
+    grid->capacity = 0;
+
+}
+
+
+
+void cleanupMoveLogger(MoveLogger* logger) {
+    if (!logger) return;
+
+    MoveLog* current = logger->head;
+    while (current != NULL) {
+        MoveLog* next = current->next;  // Копируем next до free
+        free(current);
+        current = next;
+    }
+
+    logger->head = NULL;
+    logger->tail = NULL;
+    logger->count = 0;
+}
+
+
+
+void logMove(MoveLogger* logger, int x, int y, MoveType type) {
+    MoveLog* newMove = (MoveLog*)malloc(sizeof(MoveLog));
+    if (newMove != NULL) {
+        newMove->x = x;
+        newMove->y = y;
+        newMove->type = type;
+        newMove->next = NULL;
+    }
+
+    if (logger->count >= 6) {
+        // Удаляем самый старый ход (FIFO)
+        MoveLog* temp = logger->head;
+        logger->head = logger->head->next;
+        free(temp);
+        logger->count--;
+    }
+
+    if (logger->head == NULL) {
+        logger->head = newMove;
+        logger->tail = newMove;
+    }
+    else {
+        logger->tail->next = newMove;
+        logger->tail = newMove;
+    }
+    logger->count++;
+}
+
+
+// Функция добавления клетки
+void addCell(Grid* grid, int x, int y) {
+    //  Проверка входного параметра
+    if (grid == NULL) return;
+
+    //  Проверка на дубликаты
+    for (int i = 0; i < grid->size; ++i) {
+        if (grid->cells[i].x == x && grid->cells[i].y == y) {
+            return;
+        }
+    }
+
+    //  Расширение массива при необходимости
+    if (grid->size >= grid->capacity) {
+        const int newCapacity = (grid->capacity == 0) ? 4 : grid->capacity * 2;
+
+        // Создаем временный указатель для анализатора
+        Cell* const newCells = (Cell*)realloc(grid->cells, newCapacity * sizeof(Cell));
+        if (!newCells) {
+            fprintf(stderr, "Memory allocation failed\n");
+            cleanupGrid(grid);
+            exit(1);
+        }
+
+        grid->cells = newCells;
+        grid->capacity = newCapacity;
+    }
+
+    //  Костыль для VS2019 - делаем запись через указатель
+    Cell* target = grid->cells + grid->size;
+    target->x = x;
+    target->y = y;
+    target->symbol = 0;
+
+    //  Увеличиваем размер только после успешной записи
+    grid->size++;
+}
+
+
+// Инициализация и создание текста
+int initText(AppState* state, const char* fontPath) {
+    FILE* fontFile = fopen(fontPath, "rb");
+    if (!fontFile) {
+        fprintf(stderr, "Incorrect file for text\n");
+        return 0;
+    }
+
+    fseek(fontFile, 0, SEEK_END);
+    long size = ftell(fontFile);
+    fseek(fontFile, 0, SEEK_SET);
+
+    unsigned char* fontBuffer = (unsigned char*)malloc(size);
+    if (!fontBuffer) {
+        fclose(fontFile);
+        return 0;
+    }
+
+    fread(fontBuffer, 1, size, fontFile);
+    fclose(fontFile);
+
+    int texWidth = 512;
+    int texHeight = 512;
+    unsigned char* tempBitmap = (unsigned char*)malloc((long long int)texWidth * texHeight);
+    if (!tempBitmap) {
+        free(fontBuffer);
+        return 0;
+    }
+
+    stbtt_BakeFontBitmap(fontBuffer, 0, state->fontSize,
+        tempBitmap, texWidth, texHeight, 32, 96, state->cdata);
+
+    // Создание текстуры
+    glGenTextures(1, &state->fontTexture);
+    glBindTexture(GL_TEXTURE_2D, state->fontTexture);
+
+
+    unsigned char* rgbaBitmap = (unsigned char*)malloc((long long int)texWidth * texHeight * 4);
+    for (int i = 0; i < texWidth * texHeight; i++) {
+        if (rgbaBitmap == NULL) {
+            break;
+        }
+        rgbaBitmap[i * 4] = 255;
+        rgbaBitmap[i * 4 + 1] = 255;
+        rgbaBitmap[i * 4 + 2] = 255;
+        rgbaBitmap[i * 4 + 3] = tempBitmap[i];
+    }
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texWidth, texHeight,
+        0, GL_RGBA, GL_UNSIGNED_BYTE, rgbaBitmap);
+    free(rgbaBitmap);
+
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    free(tempBitmap);
+    free(fontBuffer);
+    return 1;
+}
+
+
+// Функция сохранения игры
+void saveGame(const Grid* grid, const GameSettings* settings) {
+    FILE* file = fopen("saves.txt", "w");
+    if (!file) {
+        fprintf(stderr, "Incorrect file for saving\n");
+        return;
+    }
+
+    // Сохраняем настройки первой строкой, добавляем firstMove
+    fprintf(file, "SETTINGS %d %d %d %d\n",
+        settings->difficulty,
+        settings->fieldSize,
+        settings->winLineLength,
+        settings->firstMove);  // Добавляем сохранение порядка хода
+
+    // Затем сохраняем клетки
+    for (int i = 0; i < grid->size; i++) {
+        fprintf(file, "%d %d %d\n", grid->cells[i].x, grid->cells[i].y, grid->cells[i].symbol);
+    }
+
+    fclose(file);
+}
+
+
+// Загрузка игры
+int loadGame(Grid* grid, GameSettings* settings, AppState* state) {
+    FILE* file = fopen("saves.txt", "r");
+    if (!file) {
+        file = fopen("saves.txt", "w");
+        if (file) fclose(file);
+        return 0;
+    }
+
+    cleanupGrid(grid);
+    cleanupMoveLogger(&state->logger); // Очищаем лог
+
+    // Настройки из первой строки файла
+    char line[256];
+    if (fgets(line, sizeof(line), file)) {
+        if (strncmp(line, "SETTINGS", 8) == 0) {
+            int temp1;
+            int temp2;
+            int check = sscanf(line + 8, "%d %d %d %d",
+                &temp1,
+                &settings->fieldSize,
+                &settings->winLineLength,
+                &temp2);
+            settings->difficulty = (GameDifficulty)temp1;
+            settings->firstMove = (FirstMove)temp2;
+
+            if (check < 4) {
+                settings->firstMove = FIRST_MOVE_PLAYER;
+            }
+        }
+        else {
+            fseek(file, 0, SEEK_SET);
+            settings->firstMove = FIRST_MOVE_PLAYER;
+        }
+    }
+
+    int x, y, symbol;
+    int lastX = 0, lastY = 0, lastSymbol = 0;
+
+    // Читаем все ходы и запоминаем последний
+    while (fscanf(file, "%d %d %d", &x, &y, &symbol) == 3) {
+        addCell(grid, x, y);
+        grid->cells[grid->size - 1].symbol = symbol;
+
+        // Запоминаем последний ход
+        lastX = x;
+        lastY = y;
+        lastSymbol = symbol;
+
+        // Также добавляем в лог
+        MoveType moveType = (symbol == ((settings->firstMove == FIRST_MOVE_PLAYER) ? 1 : 2))
+            ? MOVE_PLAYER : MOVE_AI;
+        logMove(&state->logger, x, y, moveType);
+    }
+
+    fclose(file);
+    return 1;
+}
+
+
+// Рендер текста
+void renderText(AppState* state, const char* text, float x, float y, float scale, float r, float g, float b, float a) {
+    if (!state->fontTexture) return;
+
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, state->fontTexture);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glPushMatrix();
+    glLoadIdentity();
+    glTranslatef(x, y, 0);
+    glScalef(scale, -scale, 1.0f);
+
+    glBegin(GL_QUADS);
+    glColor4f(r, g, b, a);
+
+    float startX = 0;
+    float drawY = 0;
+    while (*text) {
+
+        stbtt_aligned_quad q;
+        stbtt_GetBakedQuad(state->cdata, 512, 512, *text - 32, &startX, &drawY, &q, 1);
+
+        glTexCoord2f(q.s0, q.t0); glVertex2f(q.x0, q.y0);
+        glTexCoord2f(q.s1, q.t0); glVertex2f(q.x1, q.y0);
+        glTexCoord2f(q.s1, q.t1); glVertex2f(q.x1, q.y1);
+        glTexCoord2f(q.s0, q.t1); glVertex2f(q.x0, q.y1);
+
+        ++text;
+    }
+
+    glEnd();
+    glPopMatrix();
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_BLEND);
+}
+
+// Отрисовка уведомления сохранения
+void drawSaveNotification(AppState* state, int width, int height) {
+    if (state->saveNotificationTimer <= 0.0f) return;
+
+    // Сохраняем текущую матрицу проекции
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0, width, 0, height, -1, 1);
+
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    // Размеры и позиция уведомления
+    float notifWidth = 300;
+    float notifHeight = 60;
+    float notifX = (width - notifWidth) / 2;
+    float notifY = height - 100.0f;
+
+    // Рисуем полупрозрачный фон
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glColor4f(0.1f, 0.5f, 0.1f, 0.9f * (state->saveNotificationTimer / 1.0f)); // Плавное исчезновение
+    glBegin(GL_QUADS);
+    glVertex2f(notifX, notifY);
+    glVertex2f(notifX + notifWidth, notifY);
+    glVertex2f(notifX + notifWidth, notifY + notifHeight);
+    glVertex2f(notifX, notifY + notifHeight);
+    glEnd();
+    glDisable(GL_BLEND);
+
+    // Рамка
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glColor4f(0.8f, 1.0f, 0.8f, 0.9f * (state->saveNotificationTimer / 1.0f));
+    glLineWidth(2.0f);
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(notifX, notifY);
+    glVertex2f(notifX + notifWidth, notifY);
+    glVertex2f(notifX + notifWidth, notifY + notifHeight);
+    glVertex2f(notifX, notifY + notifHeight);
+    glEnd();
+    glDisable(GL_BLEND);
+
+    // Текст уведомления
+    float textAlpha = state->saveNotificationTimer / 1.0f;
+    renderText(state, "Game saved successfully!",
+        notifX + 20, notifY + 35,
+        0.7f, 1.0f, 1.0f, 1.0f, textAlpha);
+
+    // Восстанавливаем матрицы
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
+}
+
+// Отрисовка главного меню
+void drawMainMenu(AppState* state) {
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, 1240, 0, 1240, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    // Фон меню
+    glColor3f(0.1f, 0.1f, 0.2f);
+    glBegin(GL_QUADS);
+    glVertex2f(0, 0);
+    glVertex2f(1240, 0);
+    glVertex2f(1240, 1240);
+    glVertex2f(0, 1240);
+    glEnd();
+
+    // Заголовок
+    float titleWidth = 0;
+    const char* title = "Krestiki-Noliki";
+    const char* p = title;
+    while (*p) {
+
+        titleWidth += state->cdata[*p - 32].xadvance;
+
+        p++;
+    }
+    renderText(state, title, (1240 - titleWidth * 1.5f) / 2, 1000, 1.5f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    // Кнопки меню
+    const char* items[] = { "New Game", "Load Game", "Settings", "About" };
+    for (int i = 0; i < 4; i++) {
+        float x = 500;
+        float y = 800.0f - i * 200.0f;
+        float width = 240;
+        float height = 80;
+
+        // Рамка кнопки
+        glColor3f(0.4f, 0.4f, 0.4f);
+        glBegin(GL_LINE_LOOP);
+        glVertex2f(x, y);
+        glVertex2f(x + width, y);
+        glVertex2f(x + width, y + height);
+        glVertex2f(x, y + height);
+        glEnd();
+
+        // Заливка кнопки
+        if (i == state->menuSelectedItem) {
+            glColor3f(0.3f, 0.3f, 0.6f);
+        }
+        else {
+            glColor3f(0.2f, 0.2f, 0.4f);
+        }
+        glBegin(GL_QUADS);
+        glVertex2f(x + 2, y + 2);
+        glVertex2f(x + width - 2, y + 2);
+        glVertex2f(x + width - 2, y + height - 2);
+        glVertex2f(x + 2, y + height - 2);
+        glEnd();
+
+        // Текст кнопки
+        float textWidth = 0;
+        p = items[i];
+        while (*p) {
+
+            textWidth += state->cdata[*p - 32].xadvance;
+
+            p++;
+        }
+        float textX = x + (width - textWidth * 0.8f) / 2;
+        float textY = y + (height - state->fontSize * 0.6f) / 2 + state->fontSize * 0.5f;
+        renderText(state, items[i], textX, textY, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
+    }
+}
+
+// Отрисовка меню об авторах
+void drawAboutScreen(AppState* state) {
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, 1240, 0, 1240, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    // Фон
+    glColor3f(0.1f, 0.2f, 0.1f);
+    glBegin(GL_QUADS);
+    glVertex2f(0, 0);
+    glVertex2f(1240, 0);
+    glVertex2f(1240, 1240);
+    glVertex2f(0, 1240);
+    glEnd();
+
+    // Заголовок
+    float titleWidth = 0;
+    const char* title = "About";
+    const char* p = title;
+    while (*p) {
+
+        titleWidth += state->cdata[*p - 32].xadvance;
+
+        p++;
+    }
+    renderText(state, title, (1240 - titleWidth * 1.5f) / 2, 1000, 1.5f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    // Текст
+    const char* lines[] = {
+        "Krestiki-Noliki Game",
+        "Version 1.0 2025y.",
+        "Autors: Galko Nikolay Romanovich, Panova Victoria Maximovna",
+        "Peter the Great St.Petersburg Polytechnic University",
+        "Institute of Computer Technology and Cybersecurity",
+        "Graduate School of Cybersecurity",
+        "Group 5131001/40002",
+        "ESC - Back"
+    };
+
+    for (int i = 0; i < 8; i++) {
+        float textWidth = 0;
+        p = lines[i];
+        while (*p) {
+
+            textWidth += state->cdata[*p - 32].xadvance;
+
+            p++;
+        }
+        float x = (1240 - textWidth * 1.0f) / 2;
+        float y = 900.0f - i * 100.0f;
+        renderText(state, lines[i], x, y, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
+    }
+
+}
+
+
+//  функция отрисовки экрана настроек
+void drawSettingsScreen(AppState* state, GLFWwindow* window) {
+    // Получаем координаты мыши
+    double mouseX, mouseY;
+    glfwGetCursorPos(window, &mouseX, &mouseY);
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    mouseY = height - mouseY; // Инвертируем Y
+    // Масштабируем к виртуальным координатам 1240x1240
+    mouseX = (mouseX / width) * 1240.0f;
+    mouseY = (mouseY / height) * 1240.0f;
+
+    // Установка матрицы проекции
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, 1240, 0, 1240, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    // Фон
+    glColor3f(0.2f, 0.1f, 0.1f);
+    glBegin(GL_QUADS);
+    glVertex2f(0, 0);
+    glVertex2f(1240, 0);
+    glVertex2f(1240, 1240);
+    glVertex2f(0, 1240);
+    glEnd();
+
+    // Заголовок
+    renderText(state, "Settings", 500, 1100, 1.5f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    // Координаты и размеры элементов
+    float yPos = 800;
+    float buttonWidth = 120;
+    float buttonHeight = 50;
+    float arrowSize = 20;
+    float valueBoxX = 700;
+
+    //  Настройка сложности
+    renderText(state, "Difficulty Level:", 300.0f, yPos, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    const char* difficultyOptions[] = { "Easy", "Medium", "Hard", "Expert" };
+    for (int i = 0; i < 4; i++) {
+        float xPos = 600.0f + i * 130.0f;
+
+        // Проверка наведения мыши
+        int isHovered = (mouseX >= xPos && mouseX <= (double)xPos + buttonWidth &&
+            mouseY >= yPos && mouseY <= (double)yPos + buttonHeight);
+
+        // Цвет кнопки
+        if ((int)state->settings.difficulty == i) {
+            glColor3f(0.4f, 0.4f, 0.8f); // Выбранный вариант
+        }
+        else if (isHovered) {
+            glColor3f(0.3f, 0.3f, 0.6f); // Наведение
+        }
+        else {
+            glColor3f(0.2f, 0.2f, 0.4f); // Обычный
+        }
+
+        // Рисуем кнопку
+        glBegin(GL_QUADS);
+        glVertex2f(xPos, yPos);
+        glVertex2f(xPos + buttonWidth, yPos);
+        glVertex2f(xPos + buttonWidth, yPos + buttonHeight);
+        glVertex2f(xPos, yPos + buttonHeight);
+        glEnd();
+
+        // Рамка
+        glColor3f(0.8f, 0.8f, 0.8f);
+        glLineWidth(2.0f);
+        glBegin(GL_LINE_LOOP);
+        glVertex2f(xPos, yPos);
+        glVertex2f(xPos + buttonWidth, yPos);
+        glVertex2f(xPos + buttonWidth, yPos + buttonHeight);
+        glVertex2f(xPos, yPos + buttonHeight);
+        glEnd();
+
+        // Текст
+        float textWidth = 0;
+        const char* p = difficultyOptions[i];
+        while (*p) {
+            textWidth += state->cdata[*p - 32].xadvance;
+            p++;
+        }
+        renderText(state, difficultyOptions[i],
+            xPos + (buttonWidth - textWidth * 0.7f) / 2,
+            yPos + (buttonHeight - state->fontSize * 0.6f) / 2 + state->fontSize * 0.5f,
+            0.7f, 1.0f, 1.0f, 1.0f, 1.0f);
+    }
+
+    //  УПРАВЛЕНИЕ ЗМЕНЬШЕНИЕМ/УВЕЛИЧЕНИЕМ
+    // Управление уменьшением
+    yPos -= 120;
+    renderText(state, "Field Size (0=infinite):", 300, yPos, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    char fieldSizeText[32];
+    snprintf(fieldSizeText, sizeof(fieldSizeText), "%d", state->settings.fieldSize);
+
+    // Проверка наведения на кнопки
+    int decHovered = (mouseX >= (double)valueBoxX - 40 && mouseX <= (double)valueBoxX - 10 &&
+        mouseY >= yPos && mouseY <= (double)yPos + buttonHeight);
+    int incHovered = (mouseX >= (double)valueBoxX + buttonWidth + 10 && mouseX <= (double)valueBoxX + buttonWidth + 40 &&
+        mouseY >= yPos && mouseY <= (double)yPos + buttonHeight);
+
+    // Кнопка уменьшения
+    glColor3f(decHovered ? 0.4f : 0.3f, 0.3f, 0.6f);
+    glBegin(GL_TRIANGLES);
+    glVertex2f(valueBoxX - 25, yPos + buttonHeight / 2);
+    glVertex2f(valueBoxX - 10, yPos + buttonHeight / 2 - arrowSize / 2);
+    glVertex2f(valueBoxX - 10, yPos + buttonHeight / 2 + arrowSize / 2);
+    glEnd();
+
+    // Поле значения
+    glColor3f(0.3f, 0.3f, 0.6f);
+    glBegin(GL_QUADS);
+    glVertex2f(valueBoxX, yPos);
+    glVertex2f(valueBoxX + buttonWidth, yPos);
+    glVertex2f(valueBoxX + buttonWidth, yPos + buttonHeight);
+    glVertex2f(valueBoxX, yPos + buttonHeight);
+    glEnd();
+
+    // Кнопка увеличения
+    glColor3f(incHovered ? 0.4f : 0.3f, 0.3f, 0.6f);
+    glBegin(GL_TRIANGLES);
+    glVertex2f(valueBoxX + buttonWidth + 25, yPos + buttonHeight / 2);
+    glVertex2f(valueBoxX + buttonWidth + 10, yPos + buttonHeight / 2 - arrowSize / 2);
+    glVertex2f(valueBoxX + buttonWidth + 10, yPos + buttonHeight / 2 + arrowSize / 2);
+    glEnd();
+
+    // Рамка
+    glColor3f(0.8f, 0.8f, 0.8f);
+    glLineWidth(2.0f);
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(valueBoxX, yPos);
+    glVertex2f(valueBoxX + buttonWidth, yPos);
+    glVertex2f(valueBoxX + buttonWidth, yPos + buttonHeight);
+    glVertex2f(valueBoxX, yPos + buttonHeight);
+    glEnd();
+
+    // Текст значения
+    float textWidth = 0;
+    const char* p = fieldSizeText;
+    while (*p) {
+        textWidth += state->cdata[*p - 32].xadvance;
+        p++;
+    }
+    renderText(state, fieldSizeText,
+        valueBoxX + (buttonWidth - textWidth * 0.7f) / 2,
+        yPos + (buttonHeight - state->fontSize * 0.6f) / 2 + state->fontSize * 0.5f,
+        0.7f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    //  Длина выигрышной линии
+    yPos -= 120;
+    renderText(state, "Win Line Length:", 300, yPos, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    char winLineText[32];
+    snprintf(winLineText, sizeof(winLineText), "%d", state->settings.winLineLength);
+
+    // Проверка наведения на кнопки
+    decHovered = (mouseX >= (double)valueBoxX - 40 && mouseX <= (double)valueBoxX - 10 &&
+        mouseY >= yPos && mouseY <= (double)yPos + buttonHeight);
+    incHovered = (mouseX >= (double)valueBoxX + buttonWidth + 10 && mouseX <= (double)valueBoxX + buttonWidth + 40 &&
+        mouseY >= yPos && mouseY <= (double)yPos + buttonHeight);
+
+    // Кнопка уменьшения
+    glColor3f(decHovered ? 0.4f : 0.3f, 0.3f, 0.6f);
+    glBegin(GL_TRIANGLES);
+    glVertex2f(valueBoxX - 25, yPos + buttonHeight / 2);
+    glVertex2f(valueBoxX - 10, yPos + buttonHeight / 2 - arrowSize / 2);
+    glVertex2f(valueBoxX - 10, yPos + buttonHeight / 2 + arrowSize / 2);
+    glEnd();
+
+    // Поле значения
+    glColor3f(0.3f, 0.3f, 0.6f);
+    glBegin(GL_QUADS);
+    glVertex2f(valueBoxX, yPos);
+    glVertex2f(valueBoxX + buttonWidth, yPos);
+    glVertex2f(valueBoxX + buttonWidth, yPos + buttonHeight);
+    glVertex2f(valueBoxX, yPos + buttonHeight);
+    glEnd();
+
+    // Кнопка увеличения
+    glColor3f(incHovered ? 0.4f : 0.3f, 0.3f, 0.6f);
+    glBegin(GL_TRIANGLES);
+    glVertex2f(valueBoxX + buttonWidth + 25, yPos + buttonHeight / 2);
+    glVertex2f(valueBoxX + buttonWidth + 10, yPos + buttonHeight / 2 - arrowSize / 2);
+    glVertex2f(valueBoxX + buttonWidth + 10, yPos + buttonHeight / 2 + arrowSize / 2);
+    glEnd();
+
+    // Рамка
+    glColor3f(0.8f, 0.8f, 0.8f);
+    glLineWidth(2.0f);
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(valueBoxX, yPos);
+    glVertex2f(valueBoxX + buttonWidth, yPos);
+    glVertex2f(valueBoxX + buttonWidth, yPos + buttonHeight);
+    glVertex2f(valueBoxX, yPos + buttonHeight);
+    glEnd();
+
+    // Текст значения
+    textWidth = 0;
+    p = winLineText;
+    while (*p) {
+        textWidth += state->cdata[*p - 32].xadvance;
+        p++;
+    }
+    renderText(state, winLineText,
+        valueBoxX + (buttonWidth - textWidth * 0.7f) / 2,
+        yPos + (buttonHeight - state->fontSize * 0.6f) / 2 + state->fontSize * 0.5f,
+        0.7f, 1.0f, 1.0f, 1.0f, 1.0f);
+    yPos -= 120;
+    renderText(state, "First Move:", 300, yPos, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    const char* firstMoveOptions[] = { "Player", "AI" };
+    for (int i = 0; i < 2; i++) {
+        float xPos = 600.0f + i * 130.0f;
+
+        // Проверка наведения мыши
+        int isHovered = (mouseX >= xPos && mouseX <= (double)xPos + buttonWidth &&
+            mouseY >= yPos && mouseY <= (double)yPos + buttonHeight);
+
+        // Цвет кнопки
+        if ((int)state->settings.firstMove == i) {
+            glColor3f(0.4f, 0.4f, 0.8f); // Выбранный вариант
+        }
+        else if (isHovered) {
+            glColor3f(0.3f, 0.3f, 0.6f); // Наведение
+        }
+        else {
+            glColor3f(0.2f, 0.2f, 0.4f); // Обычный
+        }
+
+        // Рисуем кнопку
+        glBegin(GL_QUADS);
+        glVertex2f(xPos, yPos);
+        glVertex2f(xPos + buttonWidth, yPos);
+        glVertex2f(xPos + buttonWidth, yPos + buttonHeight);
+        glVertex2f(xPos, yPos + buttonHeight);
+        glEnd();
+
+        // Рамка
+        glColor3f(0.8f, 0.8f, 0.8f);
+        glLineWidth(2.0f);
+        glBegin(GL_LINE_LOOP);
+        glVertex2f(xPos, yPos);
+        glVertex2f(xPos + buttonWidth, yPos);
+        glVertex2f(xPos + buttonWidth, yPos + buttonHeight);
+        glVertex2f(xPos, yPos + buttonHeight);
+        glEnd();
+
+        // Текст
+        textWidth = 0;
+        p = firstMoveOptions[i];
+        while (*p) {
+            textWidth += state->cdata[*p - 32].xadvance;
+            p++;
+        }
+        renderText(state, firstMoveOptions[i],
+            xPos + (buttonWidth - textWidth * 0.7f) / 2,
+            yPos + (buttonHeight - state->fontSize * 0.6f) / 2 + state->fontSize * 0.5f,
+            0.7f, 1.0f, 1.0f, 1.0f, 1.0f);
+    }
+
+    //  Кнопка сохранения
+    yPos -= 150;
+    float saveX = (1240 - 300) / 2;
+    int saveHovered = (mouseX >= saveX && mouseX <= (double)saveX + 300 &&
+        mouseY >= yPos && mouseY <= (double)yPos + 60);
+
+    // Фон кнопки
+    glColor3f(saveHovered ? 0.4f : 0.3f, saveHovered ? 0.8f : 0.6f, 0.4f);
+    glBegin(GL_QUADS);
+    glVertex2f(saveX, yPos);
+    glVertex2f(saveX + 300, yPos);
+    glVertex2f(saveX + 300, yPos + 60);
+    glVertex2f(saveX, yPos + 60);
+    glEnd();
+
+    // Рамка
+    glColor3f(0.8f, 0.8f, 0.8f);
+    glLineWidth(2.0f);
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(saveX, yPos);
+    glVertex2f(saveX + 300, yPos);
+    glVertex2f(saveX + 300, yPos + 60);
+    glVertex2f(saveX, yPos + 60);
+    glEnd();
+
+    // Текст
+    renderText(state, "Save Settings", saveX + 70, yPos + 30, 0.9f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    // Кнопка назад
+    renderText(state, "Back (ESC)", 50, 50, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
+}
+
+
+// Полная функция обработки кликов в настройках
+void handleSettingsClick(AppState* state, GLFWwindow* window, int button) {
+    if (button != GLFW_MOUSE_BUTTON_LEFT) return;
+
+    // Получаем координаты мыши
+    double mouseX, mouseY;
+    glfwGetCursorPos(window, &mouseX, &mouseY);
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    mouseY = height - mouseY; // Инвертируем Y
+    // Масштабируем к виртуальным координатам 1240x1240
+    mouseX = (mouseX / width) * 1240.0f;
+    mouseY = (mouseY / height) * 1240.0f;
+
+    // Координаты элементов
+    float yPos = 800;
+    float buttonWidth = 120;
+    float buttonHeight = 50;
+    float valueBoxX = 700;
+
+    //  Проверка кликов по уровню сложности
+    for (int i = 0; i < 4; i++) {
+        float xPos = 600.0f + i * 130.0f;
+        if (mouseX >= xPos && mouseX <= (double)xPos + buttonWidth &&
+            mouseY >= yPos && mouseY <= (double)yPos + buttonHeight) {
+            state->settings.difficulty = i;
+            return;
+        }
+    }
+
+    //  Проверка кликов по размеру поля
+    yPos -= 120;
+
+    // Кнопка уменьшения
+    if (mouseX >= (double)valueBoxX - 40 && mouseX <= (double)valueBoxX - 10 &&
+        mouseY >= yPos && mouseY <= (double)yPos + buttonHeight) {
+        if (state->settings.fieldSize <= 1) {
+            state->settings.fieldSize = 0;
+        }
+        else {
+            state->settings.fieldSize -= 2;
+        }
+        return;
+    }
+
+    // Кнопка увеличения
+    if (mouseX >= (double)valueBoxX + buttonWidth + 10 && mouseX <= (double)valueBoxX + buttonWidth + 40 &&
+        mouseY >= yPos && mouseY <= (double)yPos + buttonHeight) {
+        if (state->settings.fieldSize == 0) {
+            state->settings.fieldSize++;
+        }
+        else {
+            state->settings.fieldSize += 2;
+        }
+        return;
+    }
+    if (state->settings.winLineLength > state->settings.fieldSize && state->settings.fieldSize != 0) {
+        state->settings.winLineLength = state->settings.fieldSize;
+    }
+
+    //  Проверка кликов по длине линии
+    yPos -= 120;
+
+    // Кнопка уменьшения
+    if (mouseX >= (double)valueBoxX - 40 && mouseX <= (double)valueBoxX - 10 &&
+        mouseY >= yPos && mouseY <= (double)yPos + buttonHeight) {
+        state->settings.winLineLength = (state->settings.winLineLength > 3) ? state->settings.winLineLength - 1 : 3;
+        return;
+    }
+
+    // Кнопка увеличения
+    if ((float)mouseX >= valueBoxX + buttonWidth + 10 && (float)mouseX <= valueBoxX + buttonWidth + 40 &&
+        mouseY >= yPos && mouseY <= (double)yPos + buttonHeight) {
+        if (state->settings.winLineLength < state->settings.fieldSize || state->settings.fieldSize == 0) {
+            state->settings.winLineLength++;
+        }
+        return;
+    }
+
+    yPos -= 120;
+    for (int i = 0; i < 2; i++) {
+        float xPos = 600.0f + i * 130.0f;
+        if (mouseX >= xPos && mouseX <= (double)xPos + buttonWidth &&
+            mouseY >= yPos && mouseY <= (double)yPos + buttonHeight) {
+            state->settings.firstMove = i;
+            return;
+        }
+    }
+
+
+    //  Проверка клика по кнопке сохранения
+    yPos -= 150;
+    float saveX = (1240 - 300) / 2;
+    if (mouseX >= saveX && mouseX <= (double)saveX + 300 &&
+        mouseY >= yPos && mouseY <= (double)yPos + 60) {
+        saveSettings(&state->settings);
+        state->defaultSettings = state->settings; // Обновляем дефолтные настройки
+        return;
+    }
+
+    //  Проверка клика по кнопке назад (верхний левый угол)
+    if (mouseX < 200 && mouseY < 100) {
+        state->currentState = MENU_MAIN;
+    }
+}
+
+
+// Замена виндовской функции _itoa т.к. для линуха низя
+static void int_to_str(int value, char* str, int base) {
+    if (base < 2 || base > 36) {
+        *str = '\0';
+        return;
+    }
+
+    char* ptr = str;
+    int is_negative = 0;
+
+    // Обработка отрицательных чисел для base 10
+    if (value < 0 && base == 10) {
+        is_negative = 1;
+        value = -value;
+    }
+
+    // Обрабатываем 0 явно, иначе будет пустая строка
+    if (value == 0) {
+        *ptr++ = '0';
+        *ptr = '\0';
+        return;
+    }
+
+    // Записываем цифры в обратном порядке
+    char* start = ptr;
+    while (value != 0) {
+        int digit = value % base;
+        *ptr++ = (digit < 10) ? (digit + '0') : (digit - 10 + 'a');
+        value /= base;
+    }
+
+    // Добавляем знак минус для отрицательных чисел
+    if (is_negative) {
+        *ptr++ = '-';
+    }
+
+    *ptr = '\0';
+
+    // Разворачиваем строку
+    ptr--;
+    while (start < ptr) {
+        char tmp = *start;
+        *start++ = *ptr;
+        *ptr-- = tmp;
+    }
+}
+
+
+// Отрисовка окна помощи
+void drawHelpWindow(AppState* state) {
+    // Сохраняем текущую матрицу проекции
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0, 1240, 0, 1240, -1, 1);
+
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    // Рисуем полупрозрачный фон
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glColor4f(0.1f, 0.1f, 0.2f, 0.9f);
+    glBegin(GL_QUADS);
+    glVertex2f(300, 170);
+    glVertex2f(940, 170);
+    glVertex2f(940, 900);
+    glVertex2f(300, 900);
+    glEnd();
+    glDisable(GL_BLEND);
+
+    // Рамка
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glLineWidth(3.0f);
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(300, 170);
+    glVertex2f(940, 170);
+    glVertex2f(940, 900);
+    glVertex2f(300, 900);
+    glEnd();
+
+    // Заголовок
+    renderText(state, "Game Controls", 450, 850, 1.2f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    // Текст инструкций
+    const char* instructions[] = {
+        "WASD or Arrow Keys - Move cursor",
+        "Shift - Center view on selected",
+        "Space - Place X",
+        "Alt+Q - Save game",
+        "ESC - Return to main menu",
+        "M - Show logs of moves",
+        "",
+        "Current Settings:",
+        "Difficulty: ",
+                "Field Size: ",
+        "Win Line Length: ",
+        "Press H to close"
+    };
+
+    // Получаем текстовые представления настроек
+    const char* difficultyNames[] = { "Easy", "Medium", "Hard", "Expert" };
+    char fieldSizeText[32];
+    char winLineText[32];
+    char modetext[32];
+    int_to_str(state->settings.fieldSize, modetext, 10);
+    snprintf(fieldSizeText, sizeof(fieldSizeText), "%s",
+        state->settings.fieldSize == 0 ? "Infinite" : modetext);
+    int_to_str(state->settings.winLineLength, winLineText, 10);
+
+    for (int i = 0; i < 6; i++) {
+        renderText(state, instructions[i], 320.0f, 750.0f - i * 50.0f, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
+    }
+
+    // Отрисовываем настройки
+    renderText(state, instructions[6], 320, 450, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    // Сложность
+    float x = 320;
+    float y = 400;
+    renderText(state, instructions[7], x, y, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
+    renderText(state, difficultyNames[state->settings.difficulty], x + 200, y, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    // Размер поля
+    y -= 50;
+    renderText(state, instructions[8], x, y, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
+    renderText(state, fieldSizeText, x + 200, y, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    // Длина линии
+    y -= 50;
+    renderText(state, instructions[9], x, y, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
+    renderText(state, winLineText, x + 200, y, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    // Остальной текст
+    renderText(state, instructions[11], 320, 200, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    // Восстанавливаем матрицы
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
+}
+
+// Основная функция для экспертного уровня, реализация частично через эвристики и через минимакса с альфа бета отсечением, довольно хорош, но не эффективен на больших линиях и полях
+void makeAIMoveExpert(AppState* state) {
+    int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
+    int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
+
+    if (state->grid.size == 0) {
+        addCell(&state->grid, 0, 0);
+        state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
+        logMove(&state->logger, 0, 0, MOVE_AI);
+        return;
+    }
+    
+    // 1. Проверить, есть ли выигрышный ход для бота (нолика)
+    // ОПТИМИЗАЦИЯ: Используем локальный поиск вместо глобального
+    for (int i = 0; i < state->grid.size && state->settings.fieldSize != 3; i++) {
+        if (state->grid.cells[i].symbol != aiSymbol) continue;
+
+        int x = state->grid.cells[i].x;
+        int y = state->grid.cells[i].y;
+        int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
+
+        for (int d = 0; d < 4; d++) {
+            int dx = directions[d][0];
+            int dy = directions[d][1];
+
+            // Проверяем линию в обоих направлениях
+            for (int dir = -1; dir <= 1; dir += 2) {
+                int count = 1;
+                int emptyCount = 0;
+                int emptyX = -1, emptyY = -1;
+
+                // ОПТИМИЗАЦИЯ: Ранний выход при нахождении первого хода
+                for (int step = 1; step < state->settings.winLineLength; step++) {
+                    int currentX = x + dx * step * dir;
+                    int currentY = y + dy * step * dir;
+                    
+                    // ОПТИМИЗАЦИЯ: Быстрая проверка границ
+                    if (state->settings.fieldSize > 0 &&
+                        (abs(currentX) > state->settings.fieldSize / 2 ||
+                         abs(currentY) > state->settings.fieldSize / 2)) break;
+
+                    int found = 0;
+                    for (int j = 0; j < state->grid.size; j++) {
+                        if (state->grid.cells[j].x == currentX &&
+                            state->grid.cells[j].y == currentY) {
+                            if (state->grid.cells[j].symbol == aiSymbol) {
+                                count++;
+                            } else if (state->grid.cells[j].symbol == playerSymbol) {
+                                found = -1;
+                            }
+                            found = 1;
+                            break;
+                        }
+                    }
+
+                    if (found == 0) {
+                        emptyCount++;
+                        emptyX = currentX;
+                        emptyY = currentY;
+                        if (emptyCount > 1) break;
+                    } else if (found == -1) {
+                        break;
+                    }
+                }
+
+                if (count >= state->settings.winLineLength - 1 && emptyCount == 1) {
+                    if (state->settings.fieldSize == 0 ||
+                        (abs(emptyX) <= state->settings.fieldSize / 2 &&
+                         abs(emptyY) <= state->settings.fieldSize / 2)) {
+                        addCell(&state->grid, emptyX, emptyY);
+                        state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
+                        logMove(&state->logger, emptyX, emptyY, MOVE_AI);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Проверить, нужно ли блокировать выигрышный ход игрока (не хватает одной фигуры)
+    // ОПТИМИЗАЦИЯ: Идентичный алгоритм, но для символа игрока
+    for (int i = 0; i < state->grid.size && state->settings.fieldSize != 3; i++) {
+        if (state->grid.cells[i].symbol != playerSymbol) continue;
+
+        int x = state->grid.cells[i].x;
+        int y = state->grid.cells[i].y;
+        int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
+
+        for (int d = 0; d < 4; d++) {
+            int dx = directions[d][0];
+            int dy = directions[d][1];
+
+            for (int dir = -1; dir <= 1; dir += 2) {
+                int count = 1;
+                int emptyCount = 0;
+                int emptyX = -1, emptyY = -1;
+
+                for (int step = 1; step < state->settings.winLineLength; step++) {
+                    int currentX = x + dx * step * dir;
+                    int currentY = y + dy * step * dir;
+
+                    if (state->settings.fieldSize > 0 &&
+                        (abs(currentX) > state->settings.fieldSize / 2 ||
+                         abs(currentY) > state->settings.fieldSize / 2)) break;
+
+                    int found = 0;
+                    for (int j = 0; j < state->grid.size; j++) {
+                        if (state->grid.cells[j].x == currentX &&
+                            state->grid.cells[j].y == currentY) {
+                            if (state->grid.cells[j].symbol == playerSymbol) {
+                                count++;
+                            } else if (state->grid.cells[j].symbol == aiSymbol) {
+                                found = -1;
+                            }
+                            found = 1;
+                            break;
+                        }
+                    }
+
+                    if (found == 0) {
+                        emptyCount++;
+                        emptyX = currentX;
+                        emptyY = currentY;
+                        if (emptyCount > 1) break;
+                    } else if (found == -1) {
+                        break;
+                    }
+                }
+
+                if (count >= state->settings.winLineLength - 1 && emptyCount == 1) {
+                    if (state->settings.fieldSize == 0 ||
+                        (abs(emptyX) <= state->settings.fieldSize / 2 &&
+                         abs(emptyY) <= state->settings.fieldSize / 2)) {
+                        addCell(&state->grid, emptyX, emptyY);
+                        state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
+                        logMove(&state->logger, emptyX, emptyY, MOVE_AI);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Проверить опасные ситуации (не хватает двух фигур)
+    for (int i = 0; i < state->grid.size && state->settings.fieldSize != 3; i++) {
+        if (state->grid.cells[i].symbol != playerSymbol) continue;
+
+        int x = state->grid.cells[i].x;
+        int y = state->grid.cells[i].y;
+        int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
+
+        for (int d = 0; d < 4; d++) {
+            int dx = directions[d][0];
+            int dy = directions[d][1];
+
+            for (int dir = -1; dir <= 1; dir += 2) {
+                int count = 1;
+                int emptyCount = 0;
+                int emptyX1 = -1, emptyY1 = -1;
+                int emptyX2 = -1, emptyY2 = -1;
+
+                for (int step = 1; step < state->settings.winLineLength; step++) {
+                    int currentX = x + dx * step * dir;
+                    int currentY = y + dy * step * dir;
+
+                    if (state->settings.fieldSize > 0 &&
+                        (abs(currentX) > state->settings.fieldSize / 2 ||
+                         abs(currentY) > state->settings.fieldSize / 2)) break;
+
+                    int found = 0;
+                    for (int j = 0; j < state->grid.size; j++) {
+                        if (state->grid.cells[j].x == currentX &&
+                            state->grid.cells[j].y == currentY) {
+                            if (state->grid.cells[j].symbol == playerSymbol) count++;
+                            else if (state->grid.cells[j].symbol == aiSymbol) found = -1;
+                            found = 1;
+                            break;
+                        }
+                    }
+
+                    if (found == 0) {
+                        if (emptyCount == 0) {
+                            emptyX1 = currentX;
+                            emptyY1 = currentY;
+                        } else {
+                            emptyX2 = currentX;
+                            emptyY2 = currentY;
+                        }
+                        emptyCount++;
+                        if (emptyCount > 2) break;
+                    } else if (found == -1) break;
+                }
+
+                if (count >= state->settings.winLineLength - 2 && emptyCount >= 2) {
+                    // Предпочитаем блокировать клетку, которая создаст больше возможностей для нас
+                    if (emptyX1 != -1 && emptyY1 != -1) {
+                        if (state->settings.fieldSize == 0 ||
+                            (abs(emptyX1) <= state->settings.fieldSize / 2 &&
+                             abs(emptyY1) <= state->settings.fieldSize / 2)) {
+                            addCell(&state->grid, emptyX1, emptyY1);
+                            state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
+                            logMove(&state->logger, emptyX1, emptyY1, MOVE_AI);
+                            return;
+                        }
+                    }
+                    if (emptyX2 != -1 && emptyY2 != -1) {
+                        if (state->settings.fieldSize == 0 ||
+                            (abs(emptyX2) <= state->settings.fieldSize / 2 &&
+                             abs(emptyY2) <= state->settings.fieldSize / 2)) {
+                            addCell(&state->grid, emptyX2, emptyY2);
+                            state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
+                            logMove(&state->logger, emptyX2, emptyY2, MOVE_AI);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // 4. ОПТИМИЗАЦИЯ: Пропускаем минимакс для больших полей при большом количестве фигур
+    if (state->grid.size > 20 && state->settings.fieldSize == 0) {
+        // Для бесконечного поля с много фигур используем только эвристики
+        makeAIMoveHard(state);
+        return;
+    }
+
+    // Использовать минимакс для стратегических ходов (только для малых полей)
+    int bestX = 0, bestY = 0;
+    if (state->settings.fieldSize == 3) {
+        minimax(state, 100, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
+    }
+    else if (state->settings.fieldSize == 0 || state->settings.fieldSize > 15) {
+        if (state->settings.winLineLength >= 8) {
+            minimax(state, 2, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
+        }
+        else if (state->settings.winLineLength > 6) {
+            minimax(state, 3, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
+        }
+        else if (state->settings.winLineLength >= 4) {
+            minimax(state, 3, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
+        }
+    }
+    else if (state->settings.fieldSize > 0) {
+        if (state->settings.winLineLength > 10) {
+            minimax(state, 3, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
+        }
+        else if (state->settings.winLineLength > 7) {
+            minimax(state, 3, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
+        }
+        else if (state->settings.winLineLength >= 4) {
+            minimax(state, 3, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
+        }
+    }
+
+    if (bestX != 0 || bestY != 0) {
+        int cellFree = 1;
+        for (int i = 0; i < state->grid.size; i++) {
+            if (state->grid.cells[i].x == bestX && state->grid.cells[i].y == bestY) {
+                cellFree = 0;
+                break;
+            }
+        }
+
+        if (cellFree && (state->settings.fieldSize == 0 ||
+            (abs(bestX) <= state->settings.fieldSize / 2 &&
+             abs(bestY) <= state->settings.fieldSize / 2))) {
+            addCell(&state->grid, bestX, bestY);
+            state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
+            logMove(&state->logger, bestX, bestY, MOVE_AI);
+            return;
+        }
+    }
+    
+    // 5. Если все остальное не сработало, используем стратегию из сложного уровня
+    makeAIMoveHard(state);
+}
+
+
+
+/*                                  Бенчмарки                   */
+void setupAlmostWinningPosition(AppState* state, int symbol) {
+    // Создает почти выигрышную позицию
+    cleanupGrid(&state->grid);
+    for (int i = 0; i < state->settings.winLineLength - 1; i++) {
+        addCell(&state->grid, i, 0);
+        state->grid.cells[i].symbol = symbol;
+    }
+}
+
+void benchmarkWinConditionCheck(AppState* state) {
+    // Тестируем на полях разного размера
+    int fieldSizes[] = { 3, 5, 10, 15, 3000 };
+    int winLengths[] = { 3, 4, 5, 7, 15, 30 };
+
+    for (int s = 0; s < 5; s++) { // size
+        for (int w = 0; w < 6; w++) { // win
+            if (winLengths[w] > fieldSizes[s]) continue;
+
+            state->settings.fieldSize = fieldSizes[s];
+            state->settings.winLineLength = winLengths[w];
+
+            // Создаем почти выигрышную позицию
+            setupAlmostWinningPosition(state, 1); // для крестиков
+
+            clock_t start = clock();
+            int checks = 10000;
+            for (int i = 0; i < checks; i++) {
+                checkWinCondition(state, 1, winLengths[w]);
+            }
+            clock_t end = clock();
+
+            printf("Win check %dx%d (line=%d): %f ns per check\n",
+                fieldSizes[s], fieldSizes[s], winLengths[w],
+                ((double)(end - start) * 1000000) / (checks * CLOCKS_PER_SEC));
+        }
+    }
+    printf("\n\n");
+}
+
+
+/* Бенчмарк для измерения времени хода бота экспертного уровня */
+void runExpertBotBenchmark(AppState* state, int testNumber) {
+    char filename[32];
+    snprintf(filename, sizeof(filename), "test_%d.txt", testNumber);
+
+    FILE* file = fopen(filename, "r");
+    if (!file) {
+        printf("Error: Could not open file %s\n", filename);
+        return;
+    }
+
+    // Загружаем настройки из файла
+    char line[256];
+    if (fgets(line, sizeof(line), file)) {
+        if (strncmp(line, "SETTINGS", 8) == 0) {
+            int temp1, temp2;
+            int check = sscanf(line + 8, "%d %d %d %d",
+                &temp1,
+                &state->settings.fieldSize,
+                &state->settings.winLineLength,
+                &temp2);
+            state->settings.difficulty = DIFFICULTY_EXPERT;
+            state->settings.firstMove = (FirstMove)temp2;
+
+            if (check < 4) {
+                state->settings.firstMove = FIRST_MOVE_PLAYER;
+            }
+        }
+    }
+
+    // Очищаем текущее поле и загружаем позицию
+    cleanupGrid(&state->grid);
+    cleanupMoveLogger(&state->logger);
+
+    int x, y, symbol;
+    while (fscanf(file, "%d %d %d", &x, &y, &symbol) == 3) {
+        addCell(&state->grid, x, y);
+        state->grid.cells[state->grid.size - 1].symbol = symbol;
+    }
+    fclose(file);
+
+    // Устанавливаем, что следующий ход - бота (нолика)
+    int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
+
+    printf("=== Benchmark Test %d ===\n", testNumber);
+    printf("Field size: %d, Win line: %d\n",
+        state->settings.fieldSize, state->settings.winLineLength);
+    printf("Position loaded: %d cells\n", state->grid.size);
+
+    // Измеряем время хода бота
+    clock_t start_time = clock();
+
+    makeAIMoveExpert(state);
+
+    clock_t end_time = clock();
+    double time_taken = ((double)(end_time - start_time)) / CLOCKS_PER_SEC * 1000.0;
+
+    // Находим ход, который сделал бот (последняя добавленная клетка)
+    int botMoveX = 0, botMoveY = 0;
+    if (state->grid.size > 0) {
+        botMoveX = state->grid.cells[state->grid.size - 1].x;
+        botMoveY = state->grid.cells[state->grid.size - 1].y;
+    }
+
+    printf("Bot move: (%d, %d)\n", botMoveX, botMoveY);
+    printf("Time taken: %.3f ms\n\n", time_taken);
+}
+
+// Обработка нажатий цифр для бенчмарка
+void handleBenchmarkKeys(AppState* state, int key) {
+    if (key >= GLFW_KEY_1 && key <= GLFW_KEY_5) {
+        int testNumber = key - GLFW_KEY_1 + 1;
+        runExpertBotBenchmark(state, testNumber);
+    }
+}
+
+int main() {
+
+
+
+    // Инициализация GLFW
+    if (!glfwInit()) {
+        fprintf(stderr, "Ошибка инициализации GLFW\n");
+        return -1;
+    }
+
+    // Создаем окно
+    GLFWwindow* window = glfwCreateWindow(1240, 1240, "Krestiki-Noliki", NULL, NULL);
+    if (!window) {
+        fprintf(stderr, "Ошибка создания окна\n");
+        glfwTerminate();
+        return -1;
+    }
+
+    // Делаем контекст текущим
+    glfwMakeContextCurrent(window);
+
+    // Инициализация состояния приложения
+    AppState state;
+    initAppState(&state);
+
+
+    // Инициализация текста
+    if (!initText(&state, "text/arial.ttf")) {
+        fprintf(stderr, "Не удалось загрузить шрифт\n");
+        glfwTerminate();
+        return -1;
+    }
+
+    glfwSetWindowUserPointer(window, &state);
+    glfwSetScrollCallback(window, scrollCallback);
+    glfwSetMouseButtonCallback(window, mouseButtonCallback);
+    glfwSetCursorPosCallback(window, cursorPosCallback);
+    glfwSetKeyCallback(window, keyCallback);
+
+    // Основной цикл рендеринга
+    while (!glfwWindowShouldClose(window)) {
+        // Очистка буфера
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // Получаем размеры окна
+        int width, height;
+        glfwGetFramebufferSize(window, &width, &height);
+        glViewport(0, 0, width, height);
+
+        double mouseX, mouseY;
+        glfwGetCursorPos(window, &mouseX, &mouseY);
+
+        if (state.saveNotificationTimer > 0.0f) {
+            state.saveNotificationTimer -= 0.005f; // Уменьшаем на время кадра 
+        }
+
+
+
+        // Выбираем что отрисовывать в зависимости от состояния
+        switch (state.currentState) {
+        case MENU_MAIN:
+            drawMainMenu(&state);
+            break;
+
+        case MENU_GAME: {
+            // Устанавливаем матрицу проекции
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+
+            // Рассчитываем видимую область
+            float aspectRatio = (float)width / (float)height;
+            float visibleLeft = -1.0f * state.camera.zoom * aspectRatio + state.camera.offsetX;
+            float visibleRight = 1.0f * state.camera.zoom * aspectRatio + state.camera.offsetX;
+            float visibleBottom = -1.0f * state.camera.zoom + state.camera.offsetY;
+            float visibleTop = 1.0f * state.camera.zoom + state.camera.offsetY;
+
+            glOrtho(visibleLeft, visibleRight, visibleBottom, visibleTop, -1.0, 1.0);
+
+            // Устанавливаем матрицу модели
+            glMatrixMode(GL_MODELVIEW);
+            glLoadIdentity();
+            glColor3f(0.0, 0.0, 0.0);
+
+            // Отрисовываем поле
+            drawGrid(visibleLeft, visibleRight, visibleBottom, visibleTop, state.camera.zoom, state.settings.fieldSize);
+
+            // Отрисовываем выбранную клетку
+            float cellSize = 2.0f / (10.0f * state.camera.zoom);
+            drawSelectedCell(state.selectedCellX, state.selectedCellY, cellSize);
+
+            // Отрисовываем символы
+            for (int i = 0; i < state.grid.size; i++) {
+                float x1 = state.grid.cells[i].x * cellSize;
+                float y1 = state.grid.cells[i].y * cellSize;
+                float x2 = x1 + cellSize;
+                float y2 = y1 + cellSize;
+
+                if (state.grid.cells[i].symbol == 1) { // Крестик 
+                    drawCross(x1, y1, x2, y2);
+                }
+                else if (state.grid.cells[i].symbol == 2) { // Нолик
+                    drawCircle(x1, y1, x2, y2);
+                }
+            }
+            if (state.currentState == MENU_SETTINGS) {
+                drawSettingsScreen(&state, window);
+            }
+            if (state.saveNotificationTimer > 0.0f) { // таймер уведы о сейве
+                drawSaveNotification(&state, width, height);
+            }
+            if (state.gameResult.rawResult != 0) { // победная линия
+                drawWinLine(&state, width, height);
+                if (state.gameResult.isDraw != 1) {
+                    drawWinningLine(&state);
+                }
+            }
+
+            // Рисуем подсказку о помощи (только если сама помощь не отображается)
+            if (!state.showHelp) {
+                drawHelpHint(&state, width, height);
+            }
+
+            if (state.showMoveLog) {
+                drawMoveLog(&state);
+            }
+
+            // Если нужно показать помощь, рисуем поверх всего
+            if (state.showHelp) {
+                drawHelpWindow(&state);
+            }
+            break;
+        }
+
+        case MENU_ABOUT:
+            drawAboutScreen(&state);
+            break;
+
+        case MENU_SETTINGS:
+            drawSettingsScreen(&state, window);
+            break;
+        }
+
+        // Меняем буферы и обрабатываем события
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+
+    // Освобождаем ресурсы
+    glDeleteTextures(1, &state.fontTexture);
+    cleanupGrid(&state.grid);
+    cleanupMoveLogger(&state.logger);
+    glfwTerminate();
+
+    return 0;
+}
