@@ -14,8 +14,12 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 1,
           "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{cf7341e6-9713-4309-bea6-cdb743e1804d}"
+            },
             {
               "$type": "Document",
               "DocumentIndex": 0,
@@ -24,7 +28,7 @@
               "RelativeDocumentMoniker": "kurs\\main.c",
               "ToolTip": "C:\\Users\\elena\\Documents\\GitHub\\kast\\kurs_tic-tac-toe\\kurs\\main.c",
               "RelativeToolTip": "kurs\\main.c",
-              "ViewState": "AgIAAHQLAAAAAAAAAAAmwBMOAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAFsJAAAAAAAAAAAmwBQJAABQAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
               "WhenOpened": "2025-10-16T15:23:46.559Z",
               "EditorCaption": ""
@@ -36,10 +40,6 @@
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{34e76e81-ee4a-11d0-ae2e-00a0c90fffc3}"
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:0:0:{cf7341e6-9713-4309-bea6-cdb743e1804d}"
             }
           ]
         }

@@ -2000,8 +2000,7 @@ void drawWinLine(AppState* state, int width, int height) {
 }
 
 // Отрисовка победной линии
-void drawWinningLine(AppState* state) {
-
+void drawWinningLine(AppState* state, float cellSize) {
     // Определяем, кто выиграл
     int winnerSymbol = 0;
     if (state->gameResult.isWin) {
@@ -2039,8 +2038,6 @@ void drawWinningLine(AppState* state) {
     glColor3f(1.0f, 1.0f, 0.0f); // Желтый цвет
     glLineWidth(5.0f);
     glBegin(GL_LINES);
-
-    float cellSize = 2.0f / (10.0f * state->camera.zoom);
     float x1 = state->winLineStartX * cellSize + cellSize / 2;
     float y1 = state->winLineStartY * cellSize + cellSize / 2;
     float x2 = state->winLineEndX * cellSize + cellSize / 2;
@@ -2195,11 +2192,11 @@ int checkWinCondition(AppState* state, int symbol, int winLength) {
 
 
 
-// Функция для хода бота (легкий уровень), условно рандом в радиусе длины победной линии
 void makeAIMoveEasy(AppState* state) {
-
     int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
     int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
+    int fieldRadius = state->settings.fieldSize > 0 ? state->settings.fieldSize / 2 : 0;
+
     if (state->grid.size == 0) {
         addCell(&state->grid, 0, 0);
         state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
@@ -2207,14 +2204,11 @@ void makeAIMoveEasy(AppState* state) {
         return;
     }
 
-
     // Собираем все игрока
     int crossCount = 0;
     for (int i = 0; i < state->grid.size; i++) {
         if (state->grid.cells[i].symbol == playerSymbol) crossCount++;
     }
-
-
 
     // Выбираем случайный
     int randomCrossIndex = rand() % crossCount;
@@ -2237,17 +2231,16 @@ void makeAIMoveEasy(AppState* state) {
     const int maxAttempts = state->settings.winLineLength;
 
     while (attempts < maxAttempts) {
-        // Выбираем случайное направление и расстояние (не больше winLineLength)
+        // Выбираем случайное направление и расстояние
         int dx = (rand() % (2 * state->settings.winLineLength + 1)) - state->settings.winLineLength;
         int dy = (rand() % (2 * state->settings.winLineLength + 1)) - state->settings.winLineLength;
 
-        // Убедимся, что мы не остались на месте
         if (dx == 0 && dy == 0) continue;
 
         int newX = targetX + dx;
         int newY = targetY + dy;
 
-        // Проверяем, что клетка свободна и в пределах поля (если поле ограничено)
+        // Проверяем, что клетка свободна и в пределах поля
         int cellFree = 1;
         for (int i = 0; i < state->grid.size; i++) {
             if (state->grid.cells[i].x == newX &&
@@ -2260,8 +2253,7 @@ void makeAIMoveEasy(AppState* state) {
         if (cellFree) {
             if (state->settings.fieldSize > 0) {
                 // Проверяем, что в пределах ограниченного поля
-                if (abs(newX) <= state->settings.fieldSize / 2 &&
-                    abs(newY) <= state->settings.fieldSize / 2) {
+                if (abs(newX) <= fieldRadius && abs(newY) <= fieldRadius) { 
                     addCell(&state->grid, newX, newY);
                     state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
                     logMove(&state->logger, newX, newY, MOVE_AI);
@@ -2276,7 +2268,6 @@ void makeAIMoveEasy(AppState* state) {
                 return;
             }
         }
-
         attempts++;
     }
 
@@ -2284,8 +2275,8 @@ void makeAIMoveEasy(AppState* state) {
     if (state->settings.fieldSize > 0) {
         // Для ограниченного поля
         for (int attempt = 0; attempt < 100; attempt++) {
-            int x = (rand() % state->settings.fieldSize) - state->settings.fieldSize / 2;
-            int y = (rand() % state->settings.fieldSize) - state->settings.fieldSize / 2;
+            int x = (rand() % state->settings.fieldSize) - fieldRadius;  
+            int y = (rand() % state->settings.fieldSize) - fieldRadius; 
 
             int cellFree = 1;
             for (int i = 0; i < state->grid.size; i++) {
@@ -2330,32 +2321,31 @@ void makeAIMoveEasy(AppState* state) {
 
 // Бот средней сложности меньше рандома, видит очевидные угрозы
 void makeAIMoveMedium(AppState* state) {
-
-
     int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
     int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
+    int fieldRadius = state->settings.fieldSize > 0 ? state->settings.fieldSize / 2 : 0;
+
     if (state->grid.size == 0) {
         addCell(&state->grid, 0, 0);
         state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
         logMove(&state->logger, 0, 0, MOVE_AI);
         return;
     }
+
     // 1. Проверить, есть ли выигрышный ход для бота (нолика)
     for (int i = 0; i < state->grid.size; i++) {
-        if (state->grid.cells[i].symbol == aiSymbol) { // Ищем свои нолики
+        if (state->grid.cells[i].symbol == aiSymbol) {
             int x = state->grid.cells[i].x;
             int y = state->grid.cells[i].y;
 
-            // Проверяем все направления
             int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
 
             for (int d = 0; d < 4; d++) {
                 int dx = directions[d][0];
                 int dy = directions[d][1];
 
-                // Проверяем линию в обоих направлениях
                 for (int dir = -1; dir <= 1; dir += 2) {
-                    int count = 1; // Уже есть один нолик
+                    int count = 1;
                     int emptyCount = 0;
                     int emptyX = -1, emptyY = -1;
 
@@ -2371,31 +2361,28 @@ void makeAIMoveMedium(AppState* state) {
                                     count++;
                                 }
                                 else if (state->grid.cells[j].symbol == playerSymbol) {
-                                    found = -1; // Крестик мешает
+                                    found = -1;
                                 }
                                 found = 1;
                                 break;
                             }
                         }
 
-                        if (found == 0) { // Пустая клетка
+                        if (found == 0) {
                             emptyCount++;
                             emptyX = currentX;
                             emptyY = currentY;
-
                             if (emptyCount > 1) break;
                         }
                         else if (found == -1) {
-                            break; // Крестик на пути
+                            break;
                         }
                     }
 
-                    // Если нашли выигрышный ход (ровно одна пустая клетка в линии нужной длины)
                     if (count == state->settings.winLineLength - 1 && emptyCount == 1) {
-                        // Проверяем, что клетка в пределах поля
                         if (state->settings.fieldSize == 0 ||
-                            (abs(emptyX) <= state->settings.fieldSize / 2 &&
-                                abs(emptyY) <= state->settings.fieldSize / 2)) {
+                            (abs(emptyX) <= fieldRadius && 
+                                abs(emptyY) <= fieldRadius)) { 
                             addCell(&state->grid, emptyX, emptyY);
                             state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
                             logMove(&state->logger, emptyX, emptyY, MOVE_AI);
@@ -2409,7 +2396,7 @@ void makeAIMoveMedium(AppState* state) {
 
     // 2. Проверить, нужно ли блокировать выигрышный ход игрока
     for (int i = 0; i < state->grid.size; i++) {
-        if (state->grid.cells[i].symbol == playerSymbol) { // Ищем крестики игрока
+        if (state->grid.cells[i].symbol == playerSymbol) {
             int x = state->grid.cells[i].x;
             int y = state->grid.cells[i].y;
 
@@ -2419,9 +2406,8 @@ void makeAIMoveMedium(AppState* state) {
                 int dx = directions[d][0];
                 int dy = directions[d][1];
 
-                // Проверяем линию в обоих направлениях
                 for (int dir = -1; dir <= 1; dir += 2) {
-                    int count = 1; // Уже есть один крестик
+                    int count = 1;
                     int emptyCount = 0;
                     int emptyX = -1, emptyY = -1;
 
@@ -2437,30 +2423,28 @@ void makeAIMoveMedium(AppState* state) {
                                     count++;
                                 }
                                 else if (state->grid.cells[j].symbol == aiSymbol) {
-                                    found = -1; // Нолик мешает
+                                    found = -1;
                                 }
                                 found = 1;
                                 break;
                             }
                         }
 
-                        if (found == 0) { // Пустая клетка
+                        if (found == 0) {
                             emptyCount++;
                             emptyX = currentX;
                             emptyY = currentY;
-
                             if (emptyCount > 1) break;
                         }
                         else if (found == -1) {
-                            break; // Нолик на пути
+                            break;
                         }
                     }
 
-                    // Если нужно блокировать (ровно одна пустая клетка в линии нужной длины)
                     if (count == state->settings.winLineLength - 1 && emptyCount == 1) {
                         if (state->settings.fieldSize == 0 ||
-                            (abs(emptyX) <= state->settings.fieldSize / 2 &&
-                                abs(emptyY) <= state->settings.fieldSize / 2)) {
+                            (abs(emptyX) <= fieldRadius &&  
+                                abs(emptyY) <= fieldRadius)) {  
                             addCell(&state->grid, emptyX, emptyY);
                             state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
                             logMove(&state->logger, emptyX, emptyY, MOVE_AI);
@@ -2493,18 +2477,17 @@ void makeAIMoveMedium(AppState* state) {
         }
     }
 
-    // 4. Случайный выбор между атакой и защитой (упрощенная версия)
-    int strategy = rand() % 2; // 0 - атака, 1 - защита
+    // 4. Случайный выбор между атакой и защитой
+    int strategy = rand() % 2;
 
-    if (strategy == 0) { // Атака - поставить рядом со своим ноликом
-        // Собираем все свои нолики
+    if (strategy == 0) {
+        // Атака - поставить рядом со своим ноликом
         int nolikCount = 0;
         for (int i = 0; i < state->grid.size; i++) {
             if (state->grid.cells[i].symbol == aiSymbol) nolikCount++;
         }
 
         if (nolikCount > 0) {
-            // Выбираем случайный нолик
             int randomIndex = rand() % nolikCount;
             int found = 0;
             int targetX = 0, targetY = 0;
@@ -2520,9 +2503,8 @@ void makeAIMoveMedium(AppState* state) {
                 }
             }
 
-            // Пытаемся поставить рядом (в радиусе 1 клетки)
             for (int attempt = 0; attempt < 8; attempt++) {
-                int dx = (rand() % 3) - 1; // -1, 0 или 1
+                int dx = (rand() % 3) - 1;
                 int dy = (rand() % 3) - 1;
 
                 if (dx == 0 && dy == 0) continue;
@@ -2530,7 +2512,6 @@ void makeAIMoveMedium(AppState* state) {
                 int newX = targetX + dx;
                 int newY = targetY + dy;
 
-                // Проверяем, что клетка свободна
                 int cellFree = 1;
                 for (int i = 0; i < state->grid.size; i++) {
                     if (state->grid.cells[i].x == newX &&
@@ -2541,10 +2522,9 @@ void makeAIMoveMedium(AppState* state) {
                 }
 
                 if (cellFree) {
-                    // Проверяем границы поля
                     if (state->settings.fieldSize > 0) {
-                        if (abs(newX) > state->settings.fieldSize / 2 ||
-                            abs(newY) > state->settings.fieldSize / 2) {
+                        if (abs(newX) > fieldRadius ||  
+                            abs(newY) > fieldRadius) {  
                             continue;
                         }
                     }
@@ -2557,15 +2537,14 @@ void makeAIMoveMedium(AppState* state) {
             }
         }
     }
-    else { // Защита - поставить рядом с крестиком
-        // Собираем все крестики
+    else {
+        // Защита - поставить рядом с крестиком
         int krestikCount = 0;
         for (int i = 0; i < state->grid.size; i++) {
             if (state->grid.cells[i].symbol == playerSymbol) krestikCount++;
         }
 
         if (krestikCount > 0) {
-            // Выбираем случайный крестик
             int randomIndex = rand() % krestikCount;
             int found = 0;
             int targetX = 0, targetY = 0;
@@ -2581,7 +2560,6 @@ void makeAIMoveMedium(AppState* state) {
                 }
             }
 
-            // Пытаемся поставить рядом (в радиусе 1 клетки)
             for (int attempt = 0; attempt < 8; attempt++) {
                 int dx = (rand() % 3) - 1;
                 int dy = (rand() % 3) - 1;
@@ -2591,7 +2569,6 @@ void makeAIMoveMedium(AppState* state) {
                 int newX = targetX + dx;
                 int newY = targetY + dy;
 
-                // Проверяем, что клетка свободна
                 int cellFree = 1;
                 for (int i = 0; i < state->grid.size; i++) {
                     if (state->grid.cells[i].x == newX &&
@@ -2602,10 +2579,9 @@ void makeAIMoveMedium(AppState* state) {
                 }
 
                 if (cellFree) {
-                    // Проверяем границы поля
                     if (state->settings.fieldSize > 0) {
-                        if (abs(newX) > state->settings.fieldSize / 2 ||
-                            abs(newY) > state->settings.fieldSize / 2) {
+                        if (abs(newX) > fieldRadius ||  
+                            abs(newY) > fieldRadius) {  
                             continue;
                         }
                     }
@@ -3820,38 +3796,39 @@ int main() {
             glMatrixMode(GL_MODELVIEW);
             glLoadIdentity();
             glColor3f(0.0, 0.0, 0.0);
+            float cellSize = 2.0f / (10.0f * state.camera.zoom);
 
             // Отрисовываем поле
             drawGrid(visibleLeft, visibleRight, visibleBottom, visibleTop, state.camera.zoom, state.settings.fieldSize);
 
             // Отрисовываем выбранную клетку
-            float cellSize = 2.0f / (10.0f * state.camera.zoom);
-            drawSelectedCell(state.selectedCellX, state.selectedCellY, cellSize);
+            drawSelectedCell(state.selectedCellX, state.selectedCellY, cellSize); // ? используем готовый
 
             // Отрисовываем символы
             for (int i = 0; i < state.grid.size; i++) {
-                float x1 = state.grid.cells[i].x * cellSize;
+                float x1 = state.grid.cells[i].x * cellSize; // ? используем готовый
                 float y1 = state.grid.cells[i].y * cellSize;
                 float x2 = x1 + cellSize;
                 float y2 = y1 + cellSize;
 
-                if (state.grid.cells[i].symbol == 1) { // Крестик 
+                if (state.grid.cells[i].symbol == 1) {
                     drawCross(x1, y1, x2, y2);
                 }
-                else if (state.grid.cells[i].symbol == 2) { // Нолик
+                else if (state.grid.cells[i].symbol == 2) {
                     drawCircle(x1, y1, x2, y2);
                 }
             }
+
             if (state.currentState == MENU_SETTINGS) {
                 drawSettingsScreen(&state, window);
             }
-            if (state.saveNotificationTimer > 0.0f) { // таймер уведы о сейве
+            if (state.saveNotificationTimer > 0.0f) {
                 drawSaveNotification(&state, width, height);
             }
-            if (state.gameResult.rawResult != 0) { // победная линия
+            if (state.gameResult.rawResult != 0) {
                 drawWinLine(&state, width, height);
                 if (state.gameResult.isDraw != 1) {
-                    drawWinningLine(&state);
+                    drawWinningLine(&state, cellSize); // ? передаем готовый
                 }
             }
 
