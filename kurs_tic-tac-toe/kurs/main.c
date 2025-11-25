@@ -3093,7 +3093,7 @@ void addCandidatesAroundMove(AppState* state, int candidateMoves[][2], int* cand
     }
 }
 
-// НОВАЯ ФУНКЦИЯ: находим критические клетки для блокировки длинных линий
+// Находим критические клетки для блокировки длинных линий
 void addCriticalBlockingMoves(AppState* state, int candidateMoves[][2], int* candidateCount,
     int maxCandidates, int playerSymbol) {
     // Проверяем все фигуры игрока на предмет опасных линий
@@ -3175,7 +3175,6 @@ void addCriticalBlockingMoves(AppState* state, int candidateMoves[][2], int* can
 }
 
 int minimax(AppState* state, int depth, int isMaximizing, int alpha, int beta, int* bestX, int* bestY, int aiSymbol, int playerSymbol) {
-    // Проверяем терминальные состояния
     int playerWin = checkWinCondition(state, playerSymbol, state->settings.winLineLength);
     int aiWin = checkWinCondition(state, aiSymbol, state->settings.winLineLength);
     int draw = checkForDraw(state);
@@ -3185,14 +3184,13 @@ int minimax(AppState* state, int depth, int isMaximizing, int alpha, int beta, i
     if (draw) return 0;
     if (depth == 0) return evaluatePosition(state, playerSymbol, aiSymbol);
 
-    // ОПТИМИЗИРОВАННЫЙ ОТБОР КАНДИДАТОВ
-    int candidateMoves[128][2]; // Увеличили буфер
+    // Отбор кандидатов
+    int candidateMoves[128][2];
     int candidateCount = 0;
 
-    // 1. Сначала добавляем КРИТИЧЕСКИЕ клетки для блокировки угроз игрока
     addCriticalBlockingMoves(state, candidateMoves, &candidateCount, 128, playerSymbol);
 
-    // 2. Затем добавляем клетки вокруг последних ходов
+    // Добавляем клетки вокруг последних ходов
     MoveLog* lastAIMove = NULL;
     MoveLog* lastPlayerMove = NULL;
     MoveLog* secondAIMove = NULL;
@@ -3246,7 +3244,6 @@ int minimax(AppState* state, int depth, int isMaximizing, int alpha, int beta, i
         candidateCount = 1;
     }
 
-    // ДАЛЕЕ ВАШ КОД БЕЗ ИЗМЕНЕНИЙ
     if (isMaximizing) {
         int maxEval = -1000000;
 
@@ -3304,10 +3301,8 @@ int minimax(AppState* state, int depth, int isMaximizing, int alpha, int beta, i
 }
 
 
-// Основная функция для экспертного уровня, реализация частично через эвристики и через минимакса с альфа бета отсечением, довольно хорош, но не эффективен на больших линиях и полях
+// Основная функция для экспертного уровня, реализация частично через эвристики и через минимакса с альфа бета отсечением
 void makeAIMoveExpert(AppState* state) {
-    printf("=== DEBUG: makeAIMoveExpert called ===\n");
-    printf("Grid size: %d, cells: %p\n", state->grid.size, state->grid.cells);
     int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
     int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
 
@@ -3433,7 +3428,7 @@ void makeAIMoveExpert(AppState* state) {
         }
     }
 
-    // 3. Проверить опасные ситуации (не хватает двух фигур) - УГРОЗЫ С ДВУМЯ ОТКРЫТЫМИ КОНЦАМИ
+    // 3. Проверить опасные ситуации (не хватает двух фигур)
     for (int i = 0; i < state->grid.size; i++) {
         if (state->grid.cells[i].symbol == playerSymbol) {
             int x = state->grid.cells[i].x;
@@ -3445,7 +3440,6 @@ void makeAIMoveExpert(AppState* state) {
                 int dx = directions[d][0];
                 int dy = directions[d][1];
 
-                // ПРОВЕРЯЕМ ЛИНИЮ ЦЕЛИКОМ В ОБОИХ НАПРАВЛЕНИЯХ
                 int totalCount = 1; // Начальная фигура
                 int openEnds = 0;
                 int blockCells[2][2]; // Клетки для блокировки с двух концов
@@ -3465,7 +3459,7 @@ void makeAIMoveExpert(AppState* state) {
                                 totalCount++;
                             }
                             else {
-                                posBlocked = 1; // Наткнулись на чужую фигуру
+                                posBlocked = 1;
                             }
                             found = 1;
                             break;
@@ -3535,9 +3529,8 @@ void makeAIMoveExpert(AppState* state) {
                     if (negBlocked) break;
                 }
 
-                // КРИТИЧЕСКАЯ УГРОЗА: не хватает 2 фигур + ДВА ОТКРЫТЫХ КОНЦА
+                // Два открытых конца
                 if (totalCount >= state->settings.winLineLength - 2 && openEnds >= 2) {
-                    // Пример: - X X X - (winLength=5) - нужно срочно блокировать!
 
                     // Блокируем первую доступную клетку
                     for (int b = 0; b < blockCount; b++) {
@@ -3649,11 +3642,6 @@ void benchmarkWinConditionCheck(AppState* state) {
 
 /* Бенчмарк для измерения времени хода бота экспертного уровня */
 void runExpertBotBenchmark(AppState* state, int testNumber) {
-    printf("=== DEBUG: Starting benchmark %d ===\n", testNumber);
-    printf("State ptr: %p\n", state);
-    printf("Grid cells ptr: %p, size: %d\n", state->grid.cells, state->grid.size);
-    printf("Field size: %d, Win line: %d\n",
-        state->settings.fieldSize, state->settings.winLineLength);
     char filename[32];
     snprintf(filename, sizeof(filename), "test_%d.txt", testNumber);
 
