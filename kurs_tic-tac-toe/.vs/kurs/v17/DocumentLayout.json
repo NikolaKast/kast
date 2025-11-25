@@ -1,9 +1,9 @@
 {
   "Version": 1,
-  "WorkspaceRootPath": "D:\\GitHub\\kast\\kurs_tic-tac-toe\\",
+  "WorkspaceRootPath": "C:\\Users\\elena\\Documents\\GitHub\\kast\\kurs_tic-tac-toe\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{F1529844-3F81-453F-8B68-405CB28979DC}|kurs\\kurs.vcxproj|D:\\GitHub\\kast\\kurs_tic-tac-toe\\kurs\\main.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "AbsoluteMoniker": "D:0:0:{F1529844-3F81-453F-8B68-405CB28979DC}|kurs\\kurs.vcxproj|C:\\Users\\elena\\Documents\\GitHub\\kast\\kurs_tic-tac-toe\\kurs\\main.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{F1529844-3F81-453F-8B68-405CB28979DC}|kurs\\kurs.vcxproj|solutionrelative:kurs\\main.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     }
   ],
@@ -32,11 +32,11 @@
               "$type": "Document",
               "DocumentIndex": 0,
               "Title": "main.c",
-              "DocumentMoniker": "D:\\GitHub\\kast\\kurs_tic-tac-toe\\kurs\\main.c",
+              "DocumentMoniker": "C:\\Users\\elena\\Documents\\GitHub\\kast\\kurs_tic-tac-toe\\kurs\\main.c",
               "RelativeDocumentMoniker": "kurs\\main.c",
-              "ToolTip": "D:\\GitHub\\kast\\kurs_tic-tac-toe\\kurs\\main.c",
+              "ToolTip": "C:\\Users\\elena\\Documents\\GitHub\\kast\\kurs_tic-tac-toe\\kurs\\main.c",
               "RelativeToolTip": "kurs\\main.c",
-              "ViewState": "AgIAADcOAAAAAAAAAAAiwFUOAAAJAAAAAAAAAA==",
+              "ViewState": "AgIAAGwFAAAAAAAAAAAmwH0FAAArAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
               "WhenOpened": "2025-10-16T15:23:46.559Z",
               "EditorCaption": ""

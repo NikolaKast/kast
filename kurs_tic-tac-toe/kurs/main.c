@@ -1400,40 +1400,26 @@ void drawHelpHint(AppState* state, int width, int height) {
     glPopMatrix();
 }
 
-// ќтрисовка клеточного пол€
+
 void drawGrid(float visibleLeft, float visibleRight,
     float visibleBottom, float visibleTop, float zoom, int fieldSize) {
-    // –азмер клетки в мировых координатах
     float cellSize = 2.0f / (10.0f * zoom);
-
-    // ќпредел€ем границы видимой области в клетках
     int startX = (int)(visibleLeft / cellSize) - 1;
     int endX = (int)(visibleRight / cellSize) + 1;
     int startY = (int)(visibleBottom / cellSize) - 1;
     int endY = (int)(visibleTop / cellSize) + 1;
-
-    // ≈сли поле ограничено, корректируем границы отрисовки
     if (fieldSize > 0) {
-        startX = (startX < -fieldSize / 2) ? -fieldSize / 2 : startX;
-        endX = (endX > fieldSize / 2) ? fieldSize / 2 : endX;
-        startY = (startY < -fieldSize / 2) ? -fieldSize / 2 : startY;
-        endY = (endY > fieldSize / 2) ? fieldSize / 2 : endY;
+        startX = -fieldSize / 2;
+        endX = fieldSize / 2;
+        startY = -fieldSize / 2;
+        endY = fieldSize / 2;
     }
-
-    // ќтрисовываем только видимые клетки
     for (int x = startX; x <= endX; ++x) {
         for (int y = startY; y <= endY; ++y) {
-            // ≈сли поле ограничено, пропускаем клетки за границами
-            if (fieldSize > 0 && (abs(x) > fieldSize / 2 || abs(y) > fieldSize / 2)) {
-                continue;
-            }
-
-            // ¬ычисл€ем координаты углов клетки
             float x1 = x * cellSize;
             float y1 = y * cellSize;
             float x2 = x1 + cellSize;
             float y2 = y1 + cellSize;
-
             glLineWidth(3.0);
             glBegin(GL_LINE_LOOP);
             glVertex2f(x1, y1);
