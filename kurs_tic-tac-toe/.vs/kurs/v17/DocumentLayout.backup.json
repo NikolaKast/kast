@@ -1,9 +1,9 @@
 {
   "Version": 1,
-  "WorkspaceRootPath": "C:\\Users\\\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C\\Documents\\GitHub\\kast\\kurs_tic-tac-toe\\",
+  "WorkspaceRootPath": "D:\\GitHub\\kast\\kurs_tic-tac-toe\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{F1529844-3F81-453F-8B68-405CB28979DC}|kurs\\kurs.vcxproj|C:\\Users\\\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C\\Documents\\GitHub\\kast\\kurs_tic-tac-toe\\kurs\\main.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "AbsoluteMoniker": "D:0:0:{F1529844-3F81-453F-8B68-405CB28979DC}|kurs\\kurs.vcxproj|D:\\GitHub\\kast\\kurs_tic-tac-toe\\kurs\\main.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{F1529844-3F81-453F-8B68-405CB28979DC}|kurs\\kurs.vcxproj|solutionrelative:kurs\\main.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     }
   ],
@@ -32,9 +32,9 @@
               "$type": "Document",
               "DocumentIndex": 0,
               "Title": "main.c",
-              "DocumentMoniker": "C:\\Users\\\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C\\Documents\\GitHub\\kast\\kurs_tic-tac-toe\\kurs\\main.c",
+              "DocumentMoniker": "D:\\GitHub\\kast\\kurs_tic-tac-toe\\kurs\\main.c",
               "RelativeDocumentMoniker": "kurs\\main.c",
-              "ToolTip": "C:\\Users\\\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C\\Documents\\GitHub\\kast\\kurs_tic-tac-toe\\kurs\\main.c",
+              "ToolTip": "D:\\GitHub\\kast\\kurs_tic-tac-toe\\kurs\\main.c",
               "RelativeToolTip": "kurs\\main.c",
               "ViewState": "AgIAAGQOAAAAAAAAAAAAwGwOAAAEAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
