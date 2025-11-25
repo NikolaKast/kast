@@ -2936,7 +2936,6 @@ void makeAIMoveHard(AppState* state) {
 int evaluatePosition(AppState* state, int symbol, int opponentSymbol) {
     int score = 0;
 
-
     // Проверяем все клетки с нашим символом
     for (int i = 0; i < state->grid.size; i++) {
         if (state->grid.cells[i].symbol != symbol) continue;
@@ -3052,6 +3051,7 @@ void addCandidatesAroundMove(AppState* state, int candidateMoves[][2], int* cand
                 continue;
             }
 
+
             // Проверяем, свободна ли клетка
             int cellFree = 1;
             for (int j = 0; j < state->grid.size; j++) {
@@ -3136,7 +3136,7 @@ void addCriticalBlockingMoves(AppState* state, int candidateMoves[][2], int* can
                     }
                 }
 
-                // Если линия опасна (не хватает 1-2 фигур для победы)
+                // (не хватает 1-2 фигур для победы)
                 if (count >= state->settings.winLineLength - 2 && emptyEnds > 0) {
                     // Добавляем критическую клетку для блокировки
                     if (criticalX != -1 && criticalY != -1) {
@@ -3160,6 +3160,26 @@ void addCriticalBlockingMoves(AppState* state, int candidateMoves[][2], int* can
     }
 }
 
+int isValidMove(AppState* state, int x, int y) {
+    // Проверка границ
+    if (state->settings.fieldSize > 0) {
+        int halfSize = state->settings.fieldSize / 2;
+        if (abs(x) > halfSize || abs(y) > halfSize) {
+            return 0;
+        }
+    }
+
+    // Проверка что клетка свободна
+    for (int i = 0; i < state->grid.size; i++) {
+        if (state->grid.cells[i].x == x && state->grid.cells[i].y == y) {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+// Минимакс с альфа-бета отсечением
 int minimax(AppState* state, int depth, int isMaximizing, int alpha, int beta, int* bestX, int* bestY, int aiSymbol, int playerSymbol) {
     int playerWin = checkWinCondition(state, playerSymbol, state->settings.winLineLength);
     int aiWin = checkWinCondition(state, aiSymbol, state->settings.winLineLength);
@@ -3168,62 +3188,72 @@ int minimax(AppState* state, int depth, int isMaximizing, int alpha, int beta, i
     if (aiWin) return 100000 - depth;
     if (playerWin) return -100000 + depth;
     if (draw) return 0;
-    if (depth == 0) return evaluatePosition(state, playerSymbol, aiSymbol);
+    if (depth == 0) return evaluatePosition(state, aiSymbol, playerSymbol);
 
-    // Отбор кандидатов
     int candidateMoves[128][2];
     int candidateCount = 0;
 
-    addCriticalBlockingMoves(state, candidateMoves, &candidateCount, 128, playerSymbol);
-
-    // Добавляем клетки вокруг последних ходов
-    MoveLog* lastAIMove = NULL;
-    MoveLog* lastPlayerMove = NULL;
-    MoveLog* secondAIMove = NULL;
-    MoveLog* secondPlayerMove = NULL;
-
-    // Проходим по логу и находим последние ходы каждого типа
-    MoveLog* current = state->logger.tail;
-    int aiFound = 0, playerFound = 0;
-
-    while (current != NULL) {
-        if (current->type == MOVE_AI && aiFound < 2) {
-            if (aiFound == 0) lastAIMove = current;
-            else secondAIMove = current;
-            aiFound++;
+    // 3х3
+    if (state->settings.fieldSize == 3) {
+        for (int x = -1; x <= 1; x++) {
+            for (int y = -1; y <= 1; y++) {
+                if (isValidMove(state, x, y)) {
+                    candidateMoves[candidateCount][0] = x;
+                    candidateMoves[candidateCount][1] = y;
+                    candidateCount++;
+                }
+            }
         }
-        else if (current->type == MOVE_PLAYER && playerFound < 2) {
-            if (playerFound == 0) lastPlayerMove = current;
-            else secondPlayerMove = current;
-            playerFound++;
+    }
+    else {
+        addCriticalBlockingMoves(state, candidateMoves, &candidateCount, 128, playerSymbol);
+
+        MoveLog* lastAIMove = NULL;
+        MoveLog* lastPlayerMove = NULL;
+        MoveLog* secondAIMove = NULL;
+        MoveLog* secondPlayerMove = NULL;
+
+        MoveLog* current = state->logger.tail;
+        int aiFound = 0, playerFound = 0;
+
+        while (current != NULL) {
+            if (current->type == MOVE_AI && aiFound < 2) {
+                if (aiFound == 0) lastAIMove = current;
+                else secondAIMove = current;
+                aiFound++;
+            }
+            else if (current->type == MOVE_PLAYER && playerFound < 2) {
+                if (playerFound == 0) lastPlayerMove = current;
+                else secondPlayerMove = current;
+                playerFound++;
+            }
+
+            if (aiFound >= 2 && playerFound >= 2) break;
+            current = current->next;
         }
 
-        if (aiFound >= 2 && playerFound >= 2) break;
-        current = current->next;
+        if (lastPlayerMove != NULL) {
+            addCandidatesAroundMove(state, candidateMoves, &candidateCount, 128,
+                lastPlayerMove->x, lastPlayerMove->y);
+        }
+
+        if (lastAIMove != NULL) {
+            addCandidatesAroundMove(state, candidateMoves, &candidateCount, 128,
+                lastAIMove->x, lastAIMove->y);
+        }
+
+        if (secondPlayerMove != NULL) {
+            addCandidatesAroundMove(state, candidateMoves, &candidateCount, 128,
+                secondPlayerMove->x, secondPlayerMove->y);
+        }
+
+        if (secondAIMove != NULL) {
+            addCandidatesAroundMove(state, candidateMoves, &candidateCount, 128,
+                secondAIMove->x, secondAIMove->y);
+        }
     }
 
-    // Добавляем кандидаты вокруг найденных ходов
-    if (lastPlayerMove != NULL) {
-        addCandidatesAroundMove(state, candidateMoves, &candidateCount, 128,
-            lastPlayerMove->x, lastPlayerMove->y);
-    }
-
-    if (lastAIMove != NULL) {
-        addCandidatesAroundMove(state, candidateMoves, &candidateCount, 128,
-            lastAIMove->x, lastAIMove->y);
-    }
-
-    if (secondPlayerMove != NULL) {
-        addCandidatesAroundMove(state, candidateMoves, &candidateCount, 128,
-            secondPlayerMove->x, secondPlayerMove->y);
-    }
-
-    if (secondAIMove != NULL) {
-        addCandidatesAroundMove(state, candidateMoves, &candidateCount, 128,
-            secondAIMove->x, secondAIMove->y);
-    }
-
-    // Если на поле совсем пусто (первый ход) или кандидатов нет
+    // Если кандидатов нет
     if (candidateCount == 0) {
         candidateMoves[0][0] = 0;
         candidateMoves[0][1] = 0;
@@ -3237,14 +3267,15 @@ int minimax(AppState* state, int depth, int isMaximizing, int alpha, int beta, i
             int x = candidateMoves[i][0];
             int y = candidateMoves[i][1];
 
-            // Делаем ход
+            if (!isValidMove(state, x, y)) continue;
+
+            int oldGridSize = state->grid.size;
             addCell(&state->grid, x, y);
             state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
 
             int eval = minimax(state, depth - 1, 0, alpha, beta, NULL, NULL, aiSymbol, playerSymbol);
 
-            // Отменяем ход
-            state->grid.size--;
+            state->grid.size = oldGridSize;
 
             if (eval > maxEval) {
                 maxEval = eval;
@@ -3266,14 +3297,15 @@ int minimax(AppState* state, int depth, int isMaximizing, int alpha, int beta, i
             int x = candidateMoves[i][0];
             int y = candidateMoves[i][1];
 
-            // Делаем ход
+            if (!isValidMove(state, x, y)) continue;
+
+            int oldGridSize = state->grid.size;
             addCell(&state->grid, x, y);
             state->grid.cells[state->grid.size - 1].symbol = playerSymbol;
 
             int eval = minimax(state, depth - 1, 1, alpha, beta, NULL, NULL, aiSymbol, playerSymbol);
 
-            // Отменяем ход
-            state->grid.size--;
+            state->grid.size = oldGridSize;
 
             if (eval < minEval) {
                 minEval = eval;
@@ -3298,9 +3330,10 @@ void makeAIMoveExpert(AppState* state) {
         logMove(&state->logger, 0, 0, MOVE_AI);
         return;
     }
-    // 1. Проверить, есть ли выигрышный ход для бота (нолика)
-    for (int i = 0; i < state->grid.size && state->settings.fieldSize != 3; i++) {
-        if (state->grid.cells[i].symbol == aiSymbol) { // Ищем свои нолики
+
+    // 1. Проверить, есть ли выигрышный ход для бота
+    for (int i = 0; i < state->grid.size; i++) {
+        if (state->grid.cells[i].symbol == aiSymbol) {
             int x = state->grid.cells[i].x;
             int y = state->grid.cells[i].y;
 
@@ -3310,9 +3343,8 @@ void makeAIMoveExpert(AppState* state) {
                 int dx = directions[d][0];
                 int dy = directions[d][1];
 
-                // Проверяем линию в обоих направлениях
                 for (int dir = -1; dir <= 1; dir += 2) {
-                    int count = 1; // Уже есть один нолик
+                    int count = 1;
                     int emptyCount = 0;
                     int emptyX = -1, emptyY = -1;
 
@@ -3325,13 +3357,13 @@ void makeAIMoveExpert(AppState* state) {
                             if (state->grid.cells[j].x == currentX &&
                                 state->grid.cells[j].y == currentY) {
                                 if (state->grid.cells[j].symbol == aiSymbol) count++;
-                                else if (state->grid.cells[j].symbol == 1) found = -1;
+                                else if (state->grid.cells[j].symbol == playerSymbol) found = -1;
                                 found = 1;
                                 break;
                             }
                         }
 
-                        if (found == 0) { // Пустая клетка
+                        if (found == 0) {
                             emptyCount++;
                             emptyX = currentX;
                             emptyY = currentY;
@@ -3340,7 +3372,6 @@ void makeAIMoveExpert(AppState* state) {
                         else if (found == -1) break;
                     }
 
-                    // Выигрышный ход (не хватает одной фигуры)
                     if (count >= state->settings.winLineLength - 1 && emptyCount == 1) {
                         if (state->settings.fieldSize == 0 ||
                             (abs(emptyX) <= state->settings.fieldSize / 2 &&
@@ -3356,9 +3387,9 @@ void makeAIMoveExpert(AppState* state) {
         }
     }
 
-    // 2. Проверить, нужно ли блокировать выигрышный ход игрока (не хватает одной фигуры)
-    for (int i = 0; i < state->grid.size && state->settings.fieldSize != 3; i++) {
-        if (state->grid.cells[i].symbol == playerSymbol) { // Ищем крестики игрока
+    // 2. Проверить, нужно ли блокировать выигрышный ход игрока
+    for (int i = 0; i < state->grid.size; i++) {
+        if (state->grid.cells[i].symbol == playerSymbol) {
             int x = state->grid.cells[i].x;
             int y = state->grid.cells[i].y;
 
@@ -3368,9 +3399,8 @@ void makeAIMoveExpert(AppState* state) {
                 int dx = directions[d][0];
                 int dy = directions[d][1];
 
-                // Проверяем линию в обоих направлениях
                 for (int dir = -1; dir <= 1; dir += 2) {
-                    int count = 1; // Уже есть один крестик
+                    int count = 1;
                     int emptyCount = 0;
                     int emptyX = -1, emptyY = -1;
 
@@ -3389,7 +3419,7 @@ void makeAIMoveExpert(AppState* state) {
                             }
                         }
 
-                        if (found == 0) { // Пустая клетка
+                        if (found == 0) {
                             emptyCount++;
                             emptyX = currentX;
                             emptyY = currentY;
@@ -3398,7 +3428,6 @@ void makeAIMoveExpert(AppState* state) {
                         else if (found == -1) break;
                     }
 
-                    // Срочная блокировка (не хватает одной фигуры)
                     if (count >= state->settings.winLineLength - 1 && emptyCount == 1) {
                         if (state->settings.fieldSize == 0 ||
                             (abs(emptyX) <= state->settings.fieldSize / 2 &&
@@ -3414,7 +3443,7 @@ void makeAIMoveExpert(AppState* state) {
         }
     }
 
-    // 3. Проверить опасные ситуации (не хватает двух фигур)
+    // 3. Проверить опасные ситуации
     for (int i = 0; i < state->grid.size; i++) {
         if (state->grid.cells[i].symbol == playerSymbol) {
             int x = state->grid.cells[i].x;
@@ -3426,12 +3455,11 @@ void makeAIMoveExpert(AppState* state) {
                 int dx = directions[d][0];
                 int dy = directions[d][1];
 
-                int totalCount = 1; // Начальная фигура
+                int totalCount = 1;
                 int openEnds = 0;
-                int blockCells[2][2]; // Клетки для блокировки с двух концов
+                int blockCells[2][2];
                 int blockCount = 0;
 
-                // Проверяем в положительном направлении
                 int posBlocked = 0;
                 for (int step = 1; step < state->settings.winLineLength; step++) {
                     int currentX = x + dx * step;
@@ -3453,27 +3481,24 @@ void makeAIMoveExpert(AppState* state) {
                     }
 
                     if (!found && !posBlocked) {
-                        // Проверяем границы
                         if (state->settings.fieldSize > 0 &&
                             (abs(currentX) > state->settings.fieldSize / 2 ||
                                 abs(currentY) > state->settings.fieldSize / 2)) {
                             posBlocked = 1;
                         }
                         else {
-                            // Нашли открытый конец
                             if (blockCount < 2) {
                                 blockCells[blockCount][0] = currentX;
                                 blockCells[blockCount][1] = currentY;
                                 blockCount++;
                             }
                             openEnds++;
-                            break; // Достаточно одного открытого конца в этом направлении
+                            break;
                         }
                     }
                     if (posBlocked) break;
                 }
 
-                // Проверяем в отрицательном направлении
                 int negBlocked = 0;
                 for (int step = 1; step < state->settings.winLineLength; step++) {
                     int currentX = x - dx * step;
@@ -3487,7 +3512,7 @@ void makeAIMoveExpert(AppState* state) {
                                 totalCount++;
                             }
                             else {
-                                negBlocked = 1; // Наткнулись на чужую фигуру
+                                negBlocked = 1;
                             }
                             found = 1;
                             break;
@@ -3495,30 +3520,25 @@ void makeAIMoveExpert(AppState* state) {
                     }
 
                     if (!found && !negBlocked) {
-                        // Проверяем границы
                         if (state->settings.fieldSize > 0 &&
                             (abs(currentX) > state->settings.fieldSize / 2 ||
                                 abs(currentY) > state->settings.fieldSize / 2)) {
                             negBlocked = 1;
                         }
                         else {
-                            // Нашли открытый конец
                             if (blockCount < 2) {
                                 blockCells[blockCount][0] = currentX;
                                 blockCells[blockCount][1] = currentY;
                                 blockCount++;
                             }
                             openEnds++;
-                            break; // Достаточно одного открытого конца в этом направлении
+                            break;
                         }
                     }
                     if (negBlocked) break;
                 }
 
-                // Два открытых конца
                 if (totalCount >= state->settings.winLineLength - 2 && openEnds >= 2) {
-
-                    // Блокируем первую доступную клетку
                     for (int b = 0; b < blockCount; b++) {
                         if (blockCells[b][0] != -1 && blockCells[b][1] != -1) {
                             addCell(&state->grid, blockCells[b][0], blockCells[b][1]);
@@ -3531,16 +3551,15 @@ void makeAIMoveExpert(AppState* state) {
             }
         }
     }
-    
-    // 4. Использовать минимакс для стратегических ходов
+
+    // 4. Использовать минимакс
     int bestX = 0, bestY = 0;
     if (state->settings.fieldSize == 3) {
-        minimax(state, 100, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
+        minimax(state, 9, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
     }
     else if (state->settings.fieldSize == 0 || state->settings.fieldSize > 15) {
         if (state->settings.winLineLength >= 8) {
             minimax(state, 3, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
-
         }
         else if (state->settings.winLineLength > 6) {
             minimax(state, 3, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
@@ -3552,7 +3571,6 @@ void makeAIMoveExpert(AppState* state) {
     else if (state->settings.fieldSize > 0) {
         if (state->settings.winLineLength > 10) {
             minimax(state, 4, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
-
         }
         else if (state->settings.winLineLength > 7) {
             minimax(state, 4, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
@@ -3580,7 +3598,8 @@ void makeAIMoveExpert(AppState* state) {
             return;
         }
     }
-    // 5. Если все остальное не сработало, используем стратегию из сложного уровня
+
+    // 5. Запасной вариант
     makeAIMoveHard(state);
 }
 
