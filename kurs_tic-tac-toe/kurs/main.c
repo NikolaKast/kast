@@ -2296,15 +2296,18 @@ void makeAIMoveEasy(AppState* state) {
     int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
     int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
     int fieldRadius = state->settings.fieldSize > 0 ? state->settings.fieldSize / 2 : 0;
+    int winLength = state->settings.winLineLength;
+    int gridSize = state->grid.size;
+    Cell* cells = state->grid.cells;
 
     // Начальный ход
     makeInitialAIMove(state, aiSymbol);
-    if (state->grid.size == 1) return; // Если сделали начальный ход, выходим
+    if (state->grid.size == 1) return;
 
     // Собираем все игрока
     int crossCount = 0;
-    for (int i = 0; i < state->grid.size; i++) {
-        if (state->grid.cells[i].symbol == playerSymbol) crossCount++;
+    for (int i = 0; i < gridSize; i++) {
+        if (cells[i].symbol == playerSymbol) crossCount++;
     }
 
     // Выбираем случайный
@@ -2312,11 +2315,11 @@ void makeAIMoveEasy(AppState* state) {
     int crossFound = 0;
     int targetX = 0, targetY = 0;
 
-    for (int i = 0; i < state->grid.size; i++) {
-        if (state->grid.cells[i].symbol == playerSymbol) {
+    for (int i = 0; i < gridSize; i++) {
+        if (cells[i].symbol == playerSymbol) {
             if (crossFound == randomCrossIndex) {
-                targetX = state->grid.cells[i].x;
-                targetY = state->grid.cells[i].y;
+                targetX = cells[i].x;
+                targetY = cells[i].y;
                 break;
             }
             crossFound++;
@@ -2325,12 +2328,12 @@ void makeAIMoveEasy(AppState* state) {
 
     // Пытаемся поставить рядом с выбранным крестиком
     int attempts = 0;
-    const int maxAttempts = state->settings.winLineLength;
+    const int maxAttempts = winLength;
 
     while (attempts < maxAttempts) {
         // Выбираем случайное направление и расстояние
-        int dx = (rand() % (2 * state->settings.winLineLength + 1)) - state->settings.winLineLength;
-        int dy = (rand() % (2 * state->settings.winLineLength + 1)) - state->settings.winLineLength;
+        int dx = (rand() % (2 * winLength + 1)) - winLength;
+        int dy = (rand() % (2 * winLength + 1)) - winLength;
 
         if (dx == 0 && dy == 0) continue;
 
@@ -2339,9 +2342,8 @@ void makeAIMoveEasy(AppState* state) {
 
         // Проверяем, что клетка свободна и в пределах поля
         int cellFree = 1;
-        for (int i = 0; i < state->grid.size; i++) {
-            if (state->grid.cells[i].x == newX &&
-                state->grid.cells[i].y == newY) {
+        for (int i = 0; i < gridSize; i++) {
+            if (cells[i].x == newX && cells[i].y == newY) {
                 cellFree = 0;
                 break;
             }
@@ -2349,8 +2351,7 @@ void makeAIMoveEasy(AppState* state) {
 
         if (cellFree) {
             if (state->settings.fieldSize > 0) {
-                // Проверяем, что в пределах ограниченного поля
-                if (abs(newX) <= fieldRadius && abs(newY) <= fieldRadius) { 
+                if (abs(newX) <= fieldRadius && abs(newY) <= fieldRadius) {
                     addCell(&state->grid, newX, newY);
                     state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
                     logMove(&state->logger, newX, newY, MOVE_AI);
@@ -2358,7 +2359,6 @@ void makeAIMoveEasy(AppState* state) {
                 }
             }
             else {
-                // Для бесконечного поля просто добавляем
                 addCell(&state->grid, newX, newY);
                 state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
                 logMove(&state->logger, newX, newY, MOVE_AI);
@@ -2370,15 +2370,13 @@ void makeAIMoveEasy(AppState* state) {
 
     // Если не удалось найти место рядом, ставим в случайную свободную клетку
     if (state->settings.fieldSize > 0) {
-        // Для ограниченного поля
         for (int attempt = 0; attempt < 100; attempt++) {
-            int x = (rand() % state->settings.fieldSize) - fieldRadius;  
-            int y = (rand() % state->settings.fieldSize) - fieldRadius; 
+            int x = (rand() % state->settings.fieldSize) - fieldRadius;
+            int y = (rand() % state->settings.fieldSize) - fieldRadius;
 
             int cellFree = 1;
-            for (int i = 0; i < state->grid.size; i++) {
-                if (state->grid.cells[i].x == x &&
-                    state->grid.cells[i].y == y) {
+            for (int i = 0; i < gridSize; i++) {
+                if (cells[i].x == x && cells[i].y == y) {
                     cellFree = 0;
                     break;
                 }
@@ -2394,13 +2392,12 @@ void makeAIMoveEasy(AppState* state) {
     }
     else {
         for (int attempt = 0; attempt < 100; attempt++) {
-            int x = (rand() % 21) - state->settings.winLineLength;
-            int y = (rand() % 21) - state->settings.winLineLength;
+            int x = (rand() % 21) - winLength;
+            int y = (rand() % 21) - winLength;
 
             int cellFree = 1;
-            for (int i = 0; i < state->grid.size; i++) {
-                if (state->grid.cells[i].x == x &&
-                    state->grid.cells[i].y == y) {
+            for (int i = 0; i < gridSize; i++) {
+                if (cells[i].x == x && cells[i].y == y) {
                     cellFree = 0;
                     break;
                 }
@@ -2423,10 +2420,12 @@ void makeAIMoveMedium(AppState* state) {
     int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
     int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
     int fieldRadius = state->settings.fieldSize > 0 ? state->settings.fieldSize / 2 : 0;
+    int gridSize = state->grid.size;
+    Cell* cells = state->grid.cells;
 
     // Начальный ход
     makeInitialAIMove(state, aiSymbol);
-    if (state->grid.size == 1) return; // Если сделали начальный ход, выходим
+    if (state->grid.size == 1) return;
 
     int moveX, moveY;
 
@@ -2457,8 +2456,8 @@ void makeAIMoveMedium(AppState* state) {
     if (strategy == 0) {
         // Атака - поставить рядом со своим ноликом
         int nolikCount = 0;
-        for (int i = 0; i < state->grid.size; i++) {
-            if (state->grid.cells[i].symbol == aiSymbol) nolikCount++;
+        for (int i = 0; i < gridSize; i++) {
+            if (cells[i].symbol == aiSymbol) nolikCount++;
         }
 
         if (nolikCount > 0) {
@@ -2466,11 +2465,11 @@ void makeAIMoveMedium(AppState* state) {
             int found = 0;
             int targetX = 0, targetY = 0;
 
-            for (int i = 0; i < state->grid.size; i++) {
-                if (state->grid.cells[i].symbol == aiSymbol) {
+            for (int i = 0; i < gridSize; i++) {
+                if (cells[i].symbol == aiSymbol) {
                     if (found == randomIndex) {
-                        targetX = state->grid.cells[i].x;
-                        targetY = state->grid.cells[i].y;
+                        targetX = cells[i].x;
+                        targetY = cells[i].y;
                         break;
                     }
                     found++;
@@ -2487,9 +2486,8 @@ void makeAIMoveMedium(AppState* state) {
                 int newY = targetY + dy;
 
                 int cellFree = 1;
-                for (int i = 0; i < state->grid.size; i++) {
-                    if (state->grid.cells[i].x == newX &&
-                        state->grid.cells[i].y == newY) {
+                for (int i = 0; i < gridSize; i++) {
+                    if (cells[i].x == newX && cells[i].y == newY) {
                         cellFree = 0;
                         break;
                     }
@@ -2497,8 +2495,7 @@ void makeAIMoveMedium(AppState* state) {
 
                 if (cellFree) {
                     if (state->settings.fieldSize > 0) {
-                        if (abs(newX) > fieldRadius ||  
-                            abs(newY) > fieldRadius) {  
+                        if (abs(newX) > fieldRadius || abs(newY) > fieldRadius) {
                             continue;
                         }
                     }
@@ -2514,8 +2511,8 @@ void makeAIMoveMedium(AppState* state) {
     else {
         // Защита - поставить рядом с крестиком
         int krestikCount = 0;
-        for (int i = 0; i < state->grid.size; i++) {
-            if (state->grid.cells[i].symbol == playerSymbol) krestikCount++;
+        for (int i = 0; i < gridSize; i++) {
+            if (cells[i].symbol == playerSymbol) krestikCount++;
         }
 
         if (krestikCount > 0) {
@@ -2523,11 +2520,11 @@ void makeAIMoveMedium(AppState* state) {
             int found = 0;
             int targetX = 0, targetY = 0;
 
-            for (int i = 0; i < state->grid.size; i++) {
-                if (state->grid.cells[i].symbol == playerSymbol) {
+            for (int i = 0; i < gridSize; i++) {
+                if (cells[i].symbol == playerSymbol) {
                     if (found == randomIndex) {
-                        targetX = state->grid.cells[i].x;
-                        targetY = state->grid.cells[i].y;
+                        targetX = cells[i].x;
+                        targetY = cells[i].y;
                         break;
                     }
                     found++;
@@ -2544,9 +2541,8 @@ void makeAIMoveMedium(AppState* state) {
                 int newY = targetY + dy;
 
                 int cellFree = 1;
-                for (int i = 0; i < state->grid.size; i++) {
-                    if (state->grid.cells[i].x == newX &&
-                        state->grid.cells[i].y == newY) {
+                for (int i = 0; i < gridSize; i++) {
+                    if (cells[i].x == newX && cells[i].y == newY) {
                         cellFree = 0;
                         break;
                     }
@@ -2554,8 +2550,7 @@ void makeAIMoveMedium(AppState* state) {
 
                 if (cellFree) {
                     if (state->settings.fieldSize > 0) {
-                        if (abs(newX) > fieldRadius ||  
-                            abs(newY) > fieldRadius) {  
+                        if (abs(newX) > fieldRadius || abs(newY) > fieldRadius) {
                             continue;
                         }
                     }
@@ -2573,13 +2568,14 @@ void makeAIMoveMedium(AppState* state) {
     makeAIMoveEasy(state);
 }
 
-
 // Бот сложного уровня, работает на эвристиках, довольно эффективен, подробнее в отчете
 void makeAIMoveHard(AppState* state) {
-
-
     int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
     int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
+    int fieldRadius = state->settings.fieldSize > 0 ? state->settings.fieldSize / 2 : 0;
+    int winLength = state->settings.winLineLength;
+    int gridSize = state->grid.size;
+    Cell* cells = state->grid.cells;
 
     // Начальный ход
     makeInitialAIMove(state, aiSymbol);
@@ -2603,30 +2599,28 @@ void makeAIMoveHard(AppState* state) {
         return;
     }
 
-    // 4. Занять центр, если он свободен (только для ограниченного поля)
+    // 3. Занять центр, если он свободен (только для ограниченного поля)
     if (takeCenterIfAvailable(state, aiSymbol)) {
         return;
     }
 
-    // 3. Поиск стратегически важных позиций (длинные линии)
-    // Сначала ищем свои линии, которые можно продолжить
+    // 4. Поиск стратегически важных позиций (длинные линии)
     int bestScore = -1;
     int bestX = 0, bestY = 0;
+    int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} }; // ИНВАРИАНТ
 
     // Проверяем все возможные пустые клетки
-    for (int x = -state->settings.winLineLength; x <= state->settings.winLineLength; x++) {
-        for (int y = -state->settings.winLineLength; y <= state->settings.winLineLength; y++) {
+    for (int x = -winLength; x <= winLength; x++) {
+        for (int y = -winLength; y <= winLength; y++) {
             // Для ограниченного поля пропускаем клетки за границами
-            if (state->settings.fieldSize > 0 &&
-                (abs(x) > state->settings.fieldSize / 2 ||
-                    abs(y) > state->settings.fieldSize / 2)) {
+            if (state->settings.fieldSize > 0 && (abs(x) > fieldRadius || abs(y) > fieldRadius)) {
                 continue;
             }
 
             // Проверяем, что клетка свободна
             int cellFree = 1;
-            for (int i = 0; i < state->grid.size; i++) {
-                if (state->grid.cells[i].x == x && state->grid.cells[i].y == y) {
+            for (int i = 0; i < gridSize; i++) {
+                if (cells[i].x == x && cells[i].y == y) {
                     cellFree = 0;
                     break;
                 }
@@ -2635,7 +2629,6 @@ void makeAIMoveHard(AppState* state) {
             if (!cellFree) continue;
 
             // Оцениваем клетку по всем направлениям
-            int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
             int cellScore = 0;
 
             for (int d = 0; d < 4; d++) {
@@ -2647,8 +2640,7 @@ void makeAIMoveHard(AppState* state) {
                 int oppCount = 0;   // Крестики
                 int emptyCount = 0;  // Пустые
 
-                for (int step = -state->settings.winLineLength + 1;
-                    step < state->settings.winLineLength; step++) {
+                for (int step = -winLength + 1; step < winLength; step++) {
                     if (step == 0) continue; // Пропускаем центральную клетку (она пустая)
 
                     int currentX = x + dx * step;
@@ -2656,18 +2648,16 @@ void makeAIMoveHard(AppState* state) {
 
                     // Для ограниченного поля проверяем границы
                     if (state->settings.fieldSize > 0 &&
-                        (abs(currentX) > state->settings.fieldSize / 2 ||
-                            abs(currentY) > state->settings.fieldSize / 2)) {
+                        (abs(currentX) > fieldRadius || abs(currentY) > fieldRadius)) {
                         continue;
                     }
 
                     // Проверяем содержимое клетки
                     int found = 0;
-                    for (int i = 0; i < state->grid.size; i++) {
-                        if (state->grid.cells[i].x == currentX &&
-                            state->grid.cells[i].y == currentY) {
-                            if (state->grid.cells[i].symbol == aiSymbol) myCount++;
-                            else if (state->grid.cells[i].symbol == playerSymbol) oppCount++;
+                    for (int i = 0; i < gridSize; i++) {
+                        if (cells[i].x == currentX && cells[i].y == currentY) {
+                            if (cells[i].symbol == aiSymbol) myCount++;
+                            else if (cells[i].symbol == playerSymbol) oppCount++;
                             found = 1;
                             break;
                         }
@@ -2703,13 +2693,11 @@ void makeAIMoveHard(AppState* state) {
         return;
     }
 
-
-
     // 5. Если ничего стратегического не найдено, делаем ход рядом с существующими ноликами
-    for (int i = 0; i < state->grid.size; i++) {
-        if (state->grid.cells[i].symbol == aiSymbol) { // Нашли нолик
-            int x = state->grid.cells[i].x;
-            int y = state->grid.cells[i].y;
+    for (int i = 0; i < gridSize; i++) {
+        if (cells[i].symbol == aiSymbol) { // Нашли нолик
+            int x = cells[i].x;
+            int y = cells[i].y;
 
             // Проверяем все соседние клетки
             for (int dx = -1; dx <= 1; dx++) {
@@ -2721,16 +2709,14 @@ void makeAIMoveHard(AppState* state) {
 
                     // Проверяем границы для ограниченного поля
                     if (state->settings.fieldSize > 0 &&
-                        (abs(newX) > state->settings.fieldSize / 2 ||
-                            abs(newY) > state->settings.fieldSize / 2)) {
+                        (abs(newX) > fieldRadius || abs(newY) > fieldRadius)) {
                         continue;
                     }
 
                     // Проверяем, что клетка свободна
                     int cellFree = 1;
-                    for (int j = 0; j < state->grid.size; j++) {
-                        if (state->grid.cells[j].x == newX &&
-                            state->grid.cells[j].y == newY) {
+                    for (int j = 0; j < gridSize; j++) {
+                        if (cells[j].x == newX && cells[j].y == newY) {
                             cellFree = 0;
                             break;
                         }
@@ -3143,6 +3129,10 @@ int minimax(AppState* state, int depth, int isMaximizing, int alpha, int beta, i
 void makeAIMoveExpert(AppState* state) {
     int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
     int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
+    int fieldRadius = state->settings.fieldSize > 0 ? state->settings.fieldSize / 2 : 0;
+    int winLength = state->settings.winLineLength;
+    int gridSize = state->grid.size;
+    Cell* cells = state->grid.cells;
 
     // Начальный ход
     makeInitialAIMove(state, aiSymbol);
@@ -3167,12 +3157,12 @@ void makeAIMoveExpert(AppState* state) {
     }
 
     // 3. Проверить опасные ситуации
-    for (int i = 0; i < state->grid.size; i++) {
-        if (state->grid.cells[i].symbol == playerSymbol) {
-            int x = state->grid.cells[i].x;
-            int y = state->grid.cells[i].y;
+    int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} }; // ИНВАРИАНТ
 
-            int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
+    for (int i = 0; i < gridSize; i++) {
+        if (cells[i].symbol == playerSymbol) {
+            int x = cells[i].x;
+            int y = cells[i].y;
 
             for (int d = 0; d < 4; d++) {
                 int dx = directions[d][0];
@@ -3184,15 +3174,14 @@ void makeAIMoveExpert(AppState* state) {
                 int blockCount = 0;
 
                 int posBlocked = 0;
-                for (int step = 1; step < state->settings.winLineLength; step++) {
+                for (int step = 1; step < winLength; step++) {
                     int currentX = x + dx * step;
                     int currentY = y + dy * step;
 
                     int found = 0;
-                    for (int j = 0; j < state->grid.size; j++) {
-                        if (state->grid.cells[j].x == currentX &&
-                            state->grid.cells[j].y == currentY) {
-                            if (state->grid.cells[j].symbol == playerSymbol) {
+                    for (int j = 0; j < gridSize; j++) {
+                        if (cells[j].x == currentX && cells[j].y == currentY) {
+                            if (cells[j].symbol == playerSymbol) {
                                 totalCount++;
                             }
                             else {
@@ -3205,8 +3194,7 @@ void makeAIMoveExpert(AppState* state) {
 
                     if (!found && !posBlocked) {
                         if (state->settings.fieldSize > 0 &&
-                            (abs(currentX) > state->settings.fieldSize / 2 ||
-                                abs(currentY) > state->settings.fieldSize / 2)) {
+                            (abs(currentX) > fieldRadius || abs(currentY) > fieldRadius)) {
                             posBlocked = 1;
                         }
                         else {
@@ -3223,15 +3211,14 @@ void makeAIMoveExpert(AppState* state) {
                 }
 
                 int negBlocked = 0;
-                for (int step = 1; step < state->settings.winLineLength; step++) {
+                for (int step = 1; step < winLength; step++) {
                     int currentX = x - dx * step;
                     int currentY = y - dy * step;
 
                     int found = 0;
-                    for (int j = 0; j < state->grid.size; j++) {
-                        if (state->grid.cells[j].x == currentX &&
-                            state->grid.cells[j].y == currentY) {
-                            if (state->grid.cells[j].symbol == playerSymbol) {
+                    for (int j = 0; j < gridSize; j++) {
+                        if (cells[j].x == currentX && cells[j].y == currentY) {
+                            if (cells[j].symbol == playerSymbol) {
                                 totalCount++;
                             }
                             else {
@@ -3244,8 +3231,7 @@ void makeAIMoveExpert(AppState* state) {
 
                     if (!found && !negBlocked) {
                         if (state->settings.fieldSize > 0 &&
-                            (abs(currentX) > state->settings.fieldSize / 2 ||
-                                abs(currentY) > state->settings.fieldSize / 2)) {
+                            (abs(currentX) > fieldRadius || abs(currentY) > fieldRadius)) {
                             negBlocked = 1;
                         }
                         else {
@@ -3261,7 +3247,7 @@ void makeAIMoveExpert(AppState* state) {
                     if (negBlocked) break;
                 }
 
-                if (totalCount >= state->settings.winLineLength - 2 && openEnds >= 2) {
+                if (totalCount >= winLength - 2 && openEnds >= 2) {
                     for (int b = 0; b < blockCount; b++) {
                         if (blockCells[b][0] != -1 && blockCells[b][1] != -1) {
                             addCell(&state->grid, blockCells[b][0], blockCells[b][1]);
@@ -3277,44 +3263,44 @@ void makeAIMoveExpert(AppState* state) {
 
     // 4. Использовать минимакс
     int bestX = 0, bestY = 0;
-    if (state->settings.fieldSize == 3) {
+    int fieldSize = state->settings.fieldSize; // Кэшируем для читаемости
+
+    if (fieldSize == 3) {
         minimax(state, 9, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
     }
-    else if (state->settings.fieldSize == 0 || state->settings.fieldSize > 15) {
-        if (state->settings.winLineLength >= 8) {
+    else if (fieldSize == 0 || fieldSize > 15) {
+        if (winLength >= 8) {
             minimax(state, 3, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
         }
-        else if (state->settings.winLineLength > 6) {
+        else if (winLength > 6) {
             minimax(state, 3, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
         }
-        else if (state->settings.winLineLength >= 4) {
+        else if (winLength >= 4) {
             minimax(state, 5, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
         }
     }
-    else if (state->settings.fieldSize > 0) {
-        if (state->settings.winLineLength > 10) {
+    else if (fieldSize > 0) {
+        if (winLength > 10) {
             minimax(state, 4, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
         }
-        else if (state->settings.winLineLength > 7) {
+        else if (winLength > 7) {
             minimax(state, 4, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
         }
-        else if (state->settings.winLineLength >= 4) {
+        else if (winLength >= 4) {
             minimax(state, 4, 1, -1000000, 1000000, &bestX, &bestY, aiSymbol, playerSymbol);
         }
     }
 
     if (bestX != 0 || bestY != 0) {
         int cellFree = 1;
-        for (int i = 0; i < state->grid.size; i++) {
-            if (state->grid.cells[i].x == bestX && state->grid.cells[i].y == bestY) {
+        for (int i = 0; i < gridSize; i++) {
+            if (cells[i].x == bestX && cells[i].y == bestY) {
                 cellFree = 0;
                 break;
             }
         }
 
-        if (cellFree && (state->settings.fieldSize == 0 ||
-            (abs(bestX) <= state->settings.fieldSize / 2 &&
-                abs(bestY) <= state->settings.fieldSize / 2))) {
+        if (cellFree && (fieldSize == 0 || (abs(bestX) <= fieldRadius && abs(bestY) <= fieldRadius))) {
             addCell(&state->grid, bestX, bestY);
             state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
             logMove(&state->logger, bestX, bestY, MOVE_AI);
@@ -3325,7 +3311,6 @@ void makeAIMoveExpert(AppState* state) {
     // 5. Запасной вариант
     makeAIMoveHard(state);
 }
-
 
 /*                                  Бенчмарки                   */
 void setupAlmostWinningPosition(AppState* state, int symbol) {
