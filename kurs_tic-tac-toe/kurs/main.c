@@ -2189,12 +2189,14 @@ int checkWinCondition(AppState* state, int symbol, int winLength) {
 }
 
 // Функция для начального хода бота
-void makeInitialAIMove(AppState* state, int aiSymbol) {
+int makeInitialAIMove(AppState* state, int aiSymbol) {
     if (state->grid.size == 0) {
         addCell(&state->grid, 0, 0);
         state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
         logMove(&state->logger, 0, 0, MOVE_AI);
+        return 1; // Ход сделан
     }
+    return 0; // Ход не сделан
 }
 
 // Объединенная функция для поиска выигрышного хода или хода для блокировки
@@ -2301,9 +2303,9 @@ void makeAIMoveEasy(AppState* state) {
     Cell* cells = state->grid.cells;
 
     // Начальный ход
-    makeInitialAIMove(state, aiSymbol);
-    if (state->grid.size == 1) return;
-
+    if (makeInitialAIMove(state, aiSymbol)) {
+        return;
+    }
     // Собираем все игрока
     int crossCount = 0;
     for (int i = 0; i < gridSize; i++) {
@@ -2424,8 +2426,9 @@ void makeAIMoveMedium(AppState* state) {
     Cell* cells = state->grid.cells;
 
     // Начальный ход
-    makeInitialAIMove(state, aiSymbol);
-    if (state->grid.size == 1) return;
+    if (makeInitialAIMove(state, aiSymbol)) {
+        return;
+    }
 
     int moveX, moveY;
 
@@ -2578,9 +2581,9 @@ void makeAIMoveHard(AppState* state) {
     Cell* cells = state->grid.cells;
 
     // Начальный ход
-    makeInitialAIMove(state, aiSymbol);
-
-    if (state->grid.size == 1) return; // Если сделали начальный ход, выходим
+    if (makeInitialAIMove(state, aiSymbol)) {
+        return;
+    } // Если сделали начальный ход, выходим
     int moveX, moveY;
 
     // 1. Проверить, есть ли выигрышный ход для бота
@@ -3135,8 +3138,9 @@ void makeAIMoveExpert(AppState* state) {
     Cell* cells = state->grid.cells;
 
     // Начальный ход
-    makeInitialAIMove(state, aiSymbol);
-    if (state->grid.size == 1) return; // Если сделали начальный ход, выходим
+    if (makeInitialAIMove(state, aiSymbol)) {
+        return;
+    } // Если сделали начальный ход, выходим
 
     int moveX, moveY;
 
