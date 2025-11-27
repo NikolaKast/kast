@@ -9,8 +9,6 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "text/stb_truetype.h"
 // Библиотека для отрисовки буковок и чиселок, дополнительно подгружен шрифт arial.ttf
-// Тестовый комментарий для гита
-// проверяем гитхабчик
 
 
                                                     /*                                СТРУКТУРЫ                                     */
@@ -2190,19 +2188,118 @@ int checkWinCondition(AppState* state, int symbol, int winLength) {
     return 0;
 }
 
+// Функция для начального хода бота
+void makeInitialAIMove(AppState* state, int aiSymbol) {
+    if (state->grid.size == 0) {
+        addCell(&state->grid, 0, 0);
+        state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
+        logMove(&state->logger, 0, 0, MOVE_AI);
+    }
+}
 
+// Объединенная функция для поиска выигрышного хода или хода для блокировки
+int findCriticalMove(AppState* state, int targetSymbol, int* resultX, int* resultY) {
+    int fieldRadius = state->settings.fieldSize > 0 ? state->settings.fieldSize / 2 : 0;
+
+    for (int i = 0; i < state->grid.size; i++) {
+        if (state->grid.cells[i].symbol == targetSymbol) {
+            int x = state->grid.cells[i].x;
+            int y = state->grid.cells[i].y;
+
+            int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
+
+            for (int d = 0; d < 4; d++) {
+                int dx = directions[d][0];
+                int dy = directions[d][1];
+
+                for (int dir = -1; dir <= 1; dir += 2) {
+                    int count = 1;
+                    int emptyCount = 0;
+                    int emptyX = -1, emptyY = -1;
+                    int blocked = 0;
+
+                    for (int step = 1; step < state->settings.winLineLength; step++) {
+                        int currentX = x + dx * step * dir;
+                        int currentY = y + dy * step * dir;
+
+                        int found = 0;
+                        for (int j = 0; j < state->grid.size; j++) {
+                            if (state->grid.cells[j].x == currentX &&
+                                state->grid.cells[j].y == currentY) {
+                                if (state->grid.cells[j].symbol == targetSymbol) {
+                                    count++;
+                                }
+                                else {
+                                    blocked = 1; // Чужой символ мешает
+                                }
+                                found = 1;
+                                break;
+                            }
+                        }
+
+                        if (found == 0 && !blocked) {
+                            emptyCount++;
+                            emptyX = currentX;
+                            emptyY = currentY;
+                            if (emptyCount > 1) break;
+                        }
+                        else if (blocked) {
+                            break;
+                        }
+                    }
+
+                    if (count >= state->settings.winLineLength - 1 && emptyCount == 1 && !blocked) {
+                        if (state->settings.fieldSize == 0 ||
+                            (abs(emptyX) <= fieldRadius &&
+                                abs(emptyY) <= fieldRadius)) {
+                            *resultX = emptyX;
+                            *resultY = emptyY;
+                            return 1; // Нашли критический ход
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return 0; // Критический ход не найден
+}
+
+// Функция для занятия центральной клетки, если она свободна
+int takeCenterIfAvailable(AppState* state, int aiSymbol) {
+    if (state->settings.fieldSize > 0) {
+        int centerX = 0, centerY = 0;
+        int centerFree = 1;
+
+        // Проверяем, свободен ли центр
+        for (int i = 0; i < state->grid.size; i++) {
+            if (state->grid.cells[i].x == centerX &&
+                state->grid.cells[i].y == centerY) {
+                centerFree = 0;
+                break;
+            }
+        }
+
+        // Если центр свободен, занимаем его
+        if (centerFree) {
+            addCell(&state->grid, centerX, centerY);
+            state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
+            logMove(&state->logger, centerX, centerY, MOVE_AI);
+            return 1; // Центр занят
+        }
+    }
+
+    return 0; // Центр не был занят
+}
 
 void makeAIMoveEasy(AppState* state) {
     int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
     int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
     int fieldRadius = state->settings.fieldSize > 0 ? state->settings.fieldSize / 2 : 0;
 
-    if (state->grid.size == 0) {
-        addCell(&state->grid, 0, 0);
-        state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
-        logMove(&state->logger, 0, 0, MOVE_AI);
-        return;
-    }
+    // Начальный ход
+    makeInitialAIMove(state, aiSymbol);
+    if (state->grid.size == 1) return; // Если сделали начальный ход, выходим
 
     // Собираем все игрока
     int crossCount = 0;
@@ -2319,162 +2416,39 @@ void makeAIMoveEasy(AppState* state) {
     }
 }
 
+
+
 // Бот средней сложности меньше рандома, видит очевидные угрозы
 void makeAIMoveMedium(AppState* state) {
     int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
     int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
     int fieldRadius = state->settings.fieldSize > 0 ? state->settings.fieldSize / 2 : 0;
 
-    if (state->grid.size == 0) {
-        addCell(&state->grid, 0, 0);
+    // Начальный ход
+    makeInitialAIMove(state, aiSymbol);
+    if (state->grid.size == 1) return; // Если сделали начальный ход, выходим
+
+    int moveX, moveY;
+
+    // 1. Проверить, есть ли выигрышный ход для бота
+    if (findCriticalMove(state, aiSymbol, &moveX, &moveY)) {
+        addCell(&state->grid, moveX, moveY);
         state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
-        logMove(&state->logger, 0, 0, MOVE_AI);
+        logMove(&state->logger, moveX, moveY, MOVE_AI);
         return;
     }
 
-    // 1. Проверить, есть ли выигрышный ход для бота (нолика)
-    for (int i = 0; i < state->grid.size; i++) {
-        if (state->grid.cells[i].symbol == aiSymbol) {
-            int x = state->grid.cells[i].x;
-            int y = state->grid.cells[i].y;
-
-            int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
-
-            for (int d = 0; d < 4; d++) {
-                int dx = directions[d][0];
-                int dy = directions[d][1];
-
-                for (int dir = -1; dir <= 1; dir += 2) {
-                    int count = 1;
-                    int emptyCount = 0;
-                    int emptyX = -1, emptyY = -1;
-
-                    for (int step = 1; step < state->settings.winLineLength; step++) {
-                        int currentX = x + dx * step * dir;
-                        int currentY = y + dy * step * dir;
-
-                        int found = 0;
-                        for (int j = 0; j < state->grid.size; j++) {
-                            if (state->grid.cells[j].x == currentX &&
-                                state->grid.cells[j].y == currentY) {
-                                if (state->grid.cells[j].symbol == aiSymbol) {
-                                    count++;
-                                }
-                                else if (state->grid.cells[j].symbol == playerSymbol) {
-                                    found = -1;
-                                }
-                                found = 1;
-                                break;
-                            }
-                        }
-
-                        if (found == 0) {
-                            emptyCount++;
-                            emptyX = currentX;
-                            emptyY = currentY;
-                            if (emptyCount > 1) break;
-                        }
-                        else if (found == -1) {
-                            break;
-                        }
-                    }
-
-                    if (count == state->settings.winLineLength - 1 && emptyCount == 1) {
-                        if (state->settings.fieldSize == 0 ||
-                            (abs(emptyX) <= fieldRadius && 
-                                abs(emptyY) <= fieldRadius)) { 
-                            addCell(&state->grid, emptyX, emptyY);
-                            state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
-                            logMove(&state->logger, emptyX, emptyY, MOVE_AI);
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     // 2. Проверить, нужно ли блокировать выигрышный ход игрока
-    for (int i = 0; i < state->grid.size; i++) {
-        if (state->grid.cells[i].symbol == playerSymbol) {
-            int x = state->grid.cells[i].x;
-            int y = state->grid.cells[i].y;
-
-            int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
-
-            for (int d = 0; d < 4; d++) {
-                int dx = directions[d][0];
-                int dy = directions[d][1];
-
-                for (int dir = -1; dir <= 1; dir += 2) {
-                    int count = 1;
-                    int emptyCount = 0;
-                    int emptyX = -1, emptyY = -1;
-
-                    for (int step = 1; step < state->settings.winLineLength; step++) {
-                        int currentX = x + dx * step * dir;
-                        int currentY = y + dy * step * dir;
-
-                        int found = 0;
-                        for (int j = 0; j < state->grid.size; j++) {
-                            if (state->grid.cells[j].x == currentX &&
-                                state->grid.cells[j].y == currentY) {
-                                if (state->grid.cells[j].symbol == playerSymbol) {
-                                    count++;
-                                }
-                                else if (state->grid.cells[j].symbol == aiSymbol) {
-                                    found = -1;
-                                }
-                                found = 1;
-                                break;
-                            }
-                        }
-
-                        if (found == 0) {
-                            emptyCount++;
-                            emptyX = currentX;
-                            emptyY = currentY;
-                            if (emptyCount > 1) break;
-                        }
-                        else if (found == -1) {
-                            break;
-                        }
-                    }
-
-                    if (count == state->settings.winLineLength - 1 && emptyCount == 1) {
-                        if (state->settings.fieldSize == 0 ||
-                            (abs(emptyX) <= fieldRadius &&  
-                                abs(emptyY) <= fieldRadius)) {  
-                            addCell(&state->grid, emptyX, emptyY);
-                            state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
-                            logMove(&state->logger, emptyX, emptyY, MOVE_AI);
-                            return;
-                        }
-                    }
-                }
-            }
-        }
+    if (findCriticalMove(state, playerSymbol, &moveX, &moveY)) {
+        addCell(&state->grid, moveX, moveY);
+        state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
+        logMove(&state->logger, moveX, moveY, MOVE_AI);
+        return;
     }
 
     // 3. Занять центр, если он свободен
-    if (state->settings.fieldSize > 0) {
-        int centerX = 0, centerY = 0;
-        int centerFree = 1;
-
-        for (int i = 0; i < state->grid.size; i++) {
-            if (state->grid.cells[i].x == centerX &&
-                state->grid.cells[i].y == centerY) {
-                centerFree = 0;
-                break;
-            }
-        }
-
-        if (centerFree) {
-            addCell(&state->grid, centerX, centerY);
-            state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
-            logMove(&state->logger, centerX, centerY, MOVE_AI);
-            return;
-        }
+    if (takeCenterIfAvailable(state, aiSymbol)) {
+        return;
     }
 
     // 4. Случайный выбор между атакой и защитой
@@ -2606,162 +2580,32 @@ void makeAIMoveHard(AppState* state) {
 
     int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
     int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
-    if (state->grid.size == 0) {
-        addCell(&state->grid, 0, 0);
+
+    // Начальный ход
+    makeInitialAIMove(state, aiSymbol);
+
+    if (state->grid.size == 1) return; // Если сделали начальный ход, выходим
+    int moveX, moveY;
+
+    // 1. Проверить, есть ли выигрышный ход для бота
+    if (findCriticalMove(state, aiSymbol, &moveX, &moveY)) {
+        addCell(&state->grid, moveX, moveY);
         state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
-        logMove(&state->logger, 0, 0, MOVE_AI);
+        logMove(&state->logger, moveX, moveY, MOVE_AI);
         return;
-    }
-    // 1. Проверить, есть ли выигрышный ход для бота (нолика)
-    for (int i = 0; i < state->grid.size; i++) {
-        if (state->grid.cells[i].symbol == aiSymbol) { // Ищем свои нолики
-            int x = state->grid.cells[i].x;
-            int y = state->grid.cells[i].y;
-
-            // Проверяем все направления
-            int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
-
-            for (int d = 0; d < 4; d++) {
-                int dx = directions[d][0];
-                int dy = directions[d][1];
-
-                // Проверяем линию в обоих направлениях
-                for (int dir = -1; dir <= 1; dir += 2) {
-                    int count = 1; // Уже есть один нолик
-                    int emptyCount = 0;
-                    int emptyX = -1, emptyY = -1;
-
-                    for (int step = 1; step < state->settings.winLineLength; step++) {
-                        int currentX = x + dx * step * dir;
-                        int currentY = y + dy * step * dir;
-
-                        int found = 0;
-                        for (int j = 0; j < state->grid.size; j++) {
-                            if (state->grid.cells[j].x == currentX &&
-                                state->grid.cells[j].y == currentY) {
-                                if (state->grid.cells[j].symbol == aiSymbol) {
-                                    count++;
-                                }
-                                else if (state->grid.cells[j].symbol == playerSymbol) {
-                                    found = -1; // Крестик мешает
-                                }
-                                found = 1;
-                                break;
-                            }
-                        }
-
-                        if (found == 0) { // Пустая клетка
-                            emptyCount++;
-                            emptyX = currentX;
-                            emptyY = currentY;
-
-                            if (emptyCount > 1) break;
-                        }
-                        else if (found == -1) {
-                            break; // Крестик на пути
-                        }
-                    }
-
-                    // Если нашли выигрышный ход (ровно одна пустая клетка в линии нужной длины)
-                    if (count >= state->settings.winLineLength - 1 && emptyCount == 1) {
-                        // Проверяем, что клетка в пределах поля
-                        if (state->settings.fieldSize == 0 ||
-                            (abs(emptyX) <= state->settings.fieldSize / 2 &&
-                                abs(emptyY) <= state->settings.fieldSize / 2)) {
-                            addCell(&state->grid, emptyX, emptyY);
-                            state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
-                            logMove(&state->logger, emptyX, emptyY, MOVE_AI);
-                            return;
-                        }
-                    }
-                }
-            }
-        }
     }
 
     // 2. Проверить, нужно ли блокировать выигрышный ход игрока
-    for (int i = 0; i < state->grid.size; i++) {
-        if (state->grid.cells[i].symbol == playerSymbol) { // Ищем крестики игрока
-            int x = state->grid.cells[i].x;
-            int y = state->grid.cells[i].y;
-
-            int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
-
-            for (int d = 0; d < 4; d++) {
-                int dx = directions[d][0];
-                int dy = directions[d][1];
-
-                // Проверяем линию в обоих направлениях
-                for (int dir = -1; dir <= 1; dir += 2) {
-                    int count = 1; // Уже есть один крестик
-                    int emptyCount = 0;
-                    int emptyX = -1, emptyY = -1;
-
-                    for (int step = 1; step < state->settings.winLineLength; step++) {
-                        int currentX = x + dx * step * dir;
-                        int currentY = y + dy * step * dir;
-
-                        int found = 0;
-                        for (int j = 0; j < state->grid.size; j++) {
-                            if (state->grid.cells[j].x == currentX &&
-                                state->grid.cells[j].y == currentY) {
-                                if (state->grid.cells[j].symbol == playerSymbol) {
-                                    count++;
-                                }
-                                else if (state->grid.cells[j].symbol == aiSymbol) {
-                                    found = -1; // Нолик мешает
-                                }
-                                found = 1;
-                                break;
-                            }
-                        }
-
-                        if (found == 0) { // Пустая клетка
-                            emptyCount++;
-                            emptyX = currentX;
-                            emptyY = currentY;
-
-                            if (emptyCount > 1) break;
-                        }
-                        else if (found == -1) {
-                            break; // Нолик на пути
-                        }
-                    }
-
-                    // Если нужно блокировать (линия из winLength-1 крестиков с одной пустой)
-                    if (count >= state->settings.winLineLength - 1 && emptyCount == 1) {
-                        if (state->settings.fieldSize == 0 ||
-                            (abs(emptyX) <= state->settings.fieldSize / 2 &&
-                                abs(emptyY) <= state->settings.fieldSize / 2)) {
-                            addCell(&state->grid, emptyX, emptyY);
-                            state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
-                            logMove(&state->logger, emptyX, emptyY, MOVE_AI);
-                            return;
-                        }
-                    }
-                }
-            }
-        }
+    if (findCriticalMove(state, playerSymbol, &moveX, &moveY)) {
+        addCell(&state->grid, moveX, moveY);
+        state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
+        logMove(&state->logger, moveX, moveY, MOVE_AI);
+        return;
     }
+
     // 4. Занять центр, если он свободен (только для ограниченного поля)
-    if (state->settings.fieldSize > 0) {
-        int centerX = 0, centerY = 0;
-        int centerFree = 1;
-
-        for (int i = 0; i < state->grid.size; i++) {
-            if (state->grid.cells[i].x == centerX &&
-                state->grid.cells[i].y == centerY) {
-                centerFree = 0;
-                break;
-            }
-        }
-
-        if (centerFree) {
-            addCell(&state->grid, centerX, centerY);
-            state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
-            logMove(&state->logger, centerX, centerY, MOVE_AI);
-            return;
-        }
+    if (takeCenterIfAvailable(state, aiSymbol)) {
+        return;
     }
 
     // 3. Поиск стратегически важных позиций (длинные линии)
@@ -3300,123 +3144,26 @@ void makeAIMoveExpert(AppState* state) {
     int aiSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 2 : 1;
     int playerSymbol = (state->settings.firstMove == FIRST_MOVE_PLAYER) ? 1 : 2;
 
-    if (state->grid.size == 0) {
-        addCell(&state->grid, 0, 0);
+    // Начальный ход
+    makeInitialAIMove(state, aiSymbol);
+    if (state->grid.size == 1) return; // Если сделали начальный ход, выходим
+
+    int moveX, moveY;
+
+    // 1. Проверить, есть ли выигрышный ход для бота
+    if (findCriticalMove(state, aiSymbol, &moveX, &moveY)) {
+        addCell(&state->grid, moveX, moveY);
         state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
-        logMove(&state->logger, 0, 0, MOVE_AI);
+        logMove(&state->logger, moveX, moveY, MOVE_AI);
         return;
     }
 
-    // 1. Проверить, есть ли выигрышный ход для бота
-    for (int i = 0; i < state->grid.size; i++) {
-        if (state->grid.cells[i].symbol == aiSymbol) {
-            int x = state->grid.cells[i].x;
-            int y = state->grid.cells[i].y;
-
-            int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
-
-            for (int d = 0; d < 4; d++) {
-                int dx = directions[d][0];
-                int dy = directions[d][1];
-
-                for (int dir = -1; dir <= 1; dir += 2) {
-                    int count = 1;
-                    int emptyCount = 0;
-                    int emptyX = -1, emptyY = -1;
-
-                    for (int step = 1; step < state->settings.winLineLength; step++) {
-                        int currentX = x + dx * step * dir;
-                        int currentY = y + dy * step * dir;
-
-                        int found = 0;
-                        for (int j = 0; j < state->grid.size; j++) {
-                            if (state->grid.cells[j].x == currentX &&
-                                state->grid.cells[j].y == currentY) {
-                                if (state->grid.cells[j].symbol == aiSymbol) count++;
-                                else if (state->grid.cells[j].symbol == playerSymbol) found = -1;
-                                found = 1;
-                                break;
-                            }
-                        }
-
-                        if (found == 0) {
-                            emptyCount++;
-                            emptyX = currentX;
-                            emptyY = currentY;
-                            if (emptyCount > 1) break;
-                        }
-                        else if (found == -1) break;
-                    }
-
-                    if (count >= state->settings.winLineLength - 1 && emptyCount == 1) {
-                        if (state->settings.fieldSize == 0 ||
-                            (abs(emptyX) <= state->settings.fieldSize / 2 &&
-                                abs(emptyY) <= state->settings.fieldSize / 2)) {
-                            addCell(&state->grid, emptyX, emptyY);
-                            state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
-                            logMove(&state->logger, emptyX, emptyY, MOVE_AI);
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     // 2. Проверить, нужно ли блокировать выигрышный ход игрока
-    for (int i = 0; i < state->grid.size; i++) {
-        if (state->grid.cells[i].symbol == playerSymbol) {
-            int x = state->grid.cells[i].x;
-            int y = state->grid.cells[i].y;
-
-            int directions[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
-
-            for (int d = 0; d < 4; d++) {
-                int dx = directions[d][0];
-                int dy = directions[d][1];
-
-                for (int dir = -1; dir <= 1; dir += 2) {
-                    int count = 1;
-                    int emptyCount = 0;
-                    int emptyX = -1, emptyY = -1;
-
-                    for (int step = 1; step < state->settings.winLineLength; step++) {
-                        int currentX = x + dx * step * dir;
-                        int currentY = y + dy * step * dir;
-
-                        int found = 0;
-                        for (int j = 0; j < state->grid.size; j++) {
-                            if (state->grid.cells[j].x == currentX &&
-                                state->grid.cells[j].y == currentY) {
-                                if (state->grid.cells[j].symbol == playerSymbol) count++;
-                                else if (state->grid.cells[j].symbol == aiSymbol) found = -1;
-                                found = 1;
-                                break;
-                            }
-                        }
-
-                        if (found == 0) {
-                            emptyCount++;
-                            emptyX = currentX;
-                            emptyY = currentY;
-                            if (emptyCount > 1) break;
-                        }
-                        else if (found == -1) break;
-                    }
-
-                    if (count >= state->settings.winLineLength - 1 && emptyCount == 1) {
-                        if (state->settings.fieldSize == 0 ||
-                            (abs(emptyX) <= state->settings.fieldSize / 2 &&
-                                abs(emptyY) <= state->settings.fieldSize / 2)) {
-                            addCell(&state->grid, emptyX, emptyY);
-                            state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
-                            logMove(&state->logger, emptyX, emptyY, MOVE_AI);
-                            return;
-                        }
-                    }
-                }
-            }
-        }
+    if (findCriticalMove(state, playerSymbol, &moveX, &moveY)) {
+        addCell(&state->grid, moveX, moveY);
+        state->grid.cells[state->grid.size - 1].symbol = aiSymbol;
+        logMove(&state->logger, moveX, moveY, MOVE_AI);
+        return;
     }
 
     // 3. Проверить опасные ситуации
@@ -3715,8 +3462,6 @@ void handleBenchmarkKeys(AppState* state, int key) {
 
 int main() {
 
-
-
     // Инициализация GLFW
     if (!glfwInit()) {
         fprintf(stderr, "Ошибка инициализации GLFW\n");
@@ -3769,8 +3514,6 @@ int main() {
         if (state.saveNotificationTimer > 0.0f) {
             state.saveNotificationTimer -= 0.005f; // Уменьшаем на время кадра 
         }
-
-
 
         // Выбираем что отрисовывать в зависимости от состояния
         switch (state.currentState) {
