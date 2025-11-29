@@ -31,8 +31,8 @@ typedef enum {
 typedef enum {
     GAME_RESULT_NONE = 0,   // Игра продолжается
     GAME_RESULT_WIN = 1,    // Победа
-    GAME_RESULT_LOSE = -1,  // Поражение
-    GAME_RESULT_DRAW = 2    // Ничья
+    GAME_RESULT_LOSE = 2,  // Поражение
+    GAME_RESULT_DRAW = 3   // Ничья
 } GameResultType;
 
 // Тип хода (игрок/бот)
@@ -48,7 +48,7 @@ typedef enum {
 
 // Элемент очереди
 typedef struct MoveLog {
-    int x, y;           // Координаты
+    short x, y;           // Координаты
     MoveType type;       // Тип хода
     struct MoveLog* next;
 } MoveLog;
@@ -57,7 +57,7 @@ typedef struct MoveLog {
 typedef struct {
     MoveLog* head;       // Первый элемент
     MoveLog* tail;       // Последний элемент
-    int count;           // Текущее количество (макс 6)
+    unsigned char count;           // Текущее количество (макс 6)
 } MoveLogger;
 
 // Камера для управления видом игрового поля
@@ -71,13 +71,13 @@ typedef struct {
 typedef struct {
     double lastX;       // Последняя позиция X
     double lastY;       // Последняя позиция Y
-    int isDragging : 2;     // Флаг перетаскивания
+    unsigned int isDragging : 1;     // Флаг перетаскивания
 } MouseState;
 
 // Клетка игрового поля
 typedef struct {
-    int x, y;          // Координаты
-    short int symbol : 3;   // Символ (0 - пусто, 1 - крестик, 2 - нолик)
+    short x, y;          // Координаты
+    unsigned char symbol;   // Символ (0 - пусто, 1 - крестик, 2 - нолик)
 } Cell;
 
 // Игровое поле
@@ -90,8 +90,8 @@ typedef struct {
 // Настройки игры
 typedef struct {
     GameDifficulty difficulty;  // Уровень сложности(4)
-    int fieldSize;             // Размер поля (0 - бесконечное)
-    int winLineLength;         // Длина выигрышной линии (минимум 3)
+    short fieldSize;             // Размер поля (0 - бесконечное)
+    short winLineLength;         // Длина выигрышной линии (минимум 3)
     FirstMove firstMove;       // Кто ходит первым
 } GameSettings;
 
@@ -100,12 +100,12 @@ typedef struct {
     Camera camera;              // Камера
     MouseState mouse;           // Состояние мыши
     Grid grid;                  // Игровое поле
-    int selectedCellX;          // Выбранная клетка X
-    int selectedCellY;          // Выбранная клетка Y
+    short selectedCellX;          // Выбранная клетка X
+    short selectedCellY;          // Выбранная клетка Y
     AppMenuState currentState;  // Текущее состояние меню
-    int menuSelectedItem : 3;       // Выбранный пункт главного меню
-    int showHelp : 2;               // Показать справку
-    int settingsSelectedItem : 3;   // Выбранный пункт настроек
+    unsigned int menuSelectedItem : 3;       // Выбранный пункт главного меню
+    unsigned int showHelp : 1;               // Показать справку
+    unsigned int settingsSelectedItem : 3;   // Выбранный пункт настроек
 
     stbtt_bakedchar cdata[96];  // Данные шрифта
     GLuint fontTexture;         // Текстура шрифта
@@ -125,10 +125,10 @@ typedef struct {
             unsigned int isDraw : 1;       // Флаг ничьи
         };
     } gameResult;
-    int winLineStartX;       // Начало линии (координаты клетки)
-    int winLineStartY;
-    int winLineEndX;         // Конец линии (координаты клетки)
-    int winLineEndY;
+    short winLineStartX;       // Начало линии (координаты клетки)
+    short winLineStartY;
+    short winLineEndX;         // Конец линии (координаты клетки)
+    short winLineEndY;
 
     MoveLogger logger;  // Логгер ходов
     int showMoveLog;    // Флаг для отображения окна (1 - показать, 0 - скрыть)
@@ -237,7 +237,7 @@ void initAppState(AppState* state) {
     // Установка текущих настройки равными дефолтным
     state->defaultSettings = state->settings;
 
-    state->gameResult.rawResult = 0;          // 0 - нет результата, 1 - победа, -1 - поражение
+    state->gameResult.rawResult = 0;          // 0 - нет результата, 1 - победа, 2 - поражение
     state->winLineStartX = 0;       // Начало линии (координаты клетки)
     state->winLineStartY = 0;
     state->winLineEndX = 0;         // Конец линии (координаты клетки)
@@ -463,7 +463,7 @@ int loadGame(Grid* grid, GameSettings* settings, AppState* state) {
         if (strncmp(line, "SETTINGS", 8) == 0) {
             int temp1;
             int temp2;
-            int check = sscanf(line + 8, "%d %d %d %d",
+            int check = sscanf(line + 8, "%d %hd %hd %d",
                 &temp1,
                 &settings->fieldSize,
                 &settings->winLineLength,
@@ -3459,7 +3459,7 @@ void runExpertBotBenchmark(AppState* state, int testNumber) {
     if (fgets(line, sizeof(line), file)) {
         if (strncmp(line, "SETTINGS", 8) == 0) {
             int temp1, temp2;
-            int check = sscanf(line + 8, "%d %d %d %d",
+            int check = sscanf(line + 8, "%d %hd %hd %d",
                 &temp1,
                 &state->settings.fieldSize,
                 &state->settings.winLineLength,
