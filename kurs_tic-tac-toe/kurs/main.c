@@ -292,7 +292,7 @@ void cleanupMoveLogger(MoveLogger* logger) {
 
 
 
-void logMove(MoveLogger* logger, int x, int y, MoveType type) {
+void logMove(MoveLogger* logger, short x, short y, MoveType type) {
     MoveLog* newMove = (MoveLog*)malloc(sizeof(MoveLog));
     if (newMove != NULL) {
         newMove->x = x;
@@ -322,7 +322,7 @@ void logMove(MoveLogger* logger, int x, int y, MoveType type) {
 
 
 // Функция добавления клетки
-void addCell(Grid* grid, int x, int y) {
+void addCell(Grid* grid, short x, short y) {
     //  Проверка входного параметра
     if (grid == NULL) return;
 
@@ -430,7 +430,7 @@ void saveGame(const Grid* grid, const GameSettings* settings) {
     }
 
     // Сохраняем настройки первой строкой, добавляем firstMove
-    fprintf(file, "SETTINGS %d %d %d %d\n",
+    fprintf(file, "SETTINGS %d %hd %hd %d\n",
         settings->difficulty,
         settings->fieldSize,
         settings->winLineLength,
@@ -785,7 +785,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
             mouseY >= yPos && mouseY <= (double)yPos + buttonHeight);
 
         // Цвет кнопки
-        if ((int)state->settings.difficulty == i) {
+        if (state->settings.difficulty == i) {
             glColor3f(0.4f, 0.4f, 0.8f); // Выбранный вариант
         }
         else if (isHovered) {
@@ -831,7 +831,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
     renderText(state, "Field Size (0=infinite):", 300, yPos, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
 
     char fieldSizeText[32];
-    snprintf(fieldSizeText, sizeof(fieldSizeText), "%d", state->settings.fieldSize);
+    snprintf(fieldSizeText, sizeof(fieldSizeText), "%hd", state->settings.fieldSize);
 
     // Проверка наведения на кнопки
     int decHovered = (mouseX >= (double)valueBoxX - 40 && mouseX <= (double)valueBoxX - 10 &&
@@ -891,7 +891,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
     renderText(state, "Win Line Length:", 300, yPos, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
 
     char winLineText[32];
-    snprintf(winLineText, sizeof(winLineText), "%d", state->settings.winLineLength);
+    snprintf(winLineText, sizeof(winLineText), "%hd", state->settings.winLineLength);
 
     // Проверка наведения на кнопки
     decHovered = (mouseX >= (double)valueBoxX - 40 && mouseX <= (double)valueBoxX - 10 &&
@@ -957,7 +957,7 @@ void drawSettingsScreen(AppState* state, GLFWwindow* window) {
             mouseY >= yPos && mouseY <= (double)yPos + buttonHeight);
 
         // Цвет кнопки
-        if ((int)state->settings.firstMove == i) {
+        if (state->settings.firstMove == i) {
             glColor3f(0.4f, 0.4f, 0.8f); // Выбранный вариант
         }
         else if (isHovered) {
@@ -1085,10 +1085,10 @@ void handleSettingsClick(AppState* state, GLFWwindow* window, int button) {
         else {
             state->settings.fieldSize += 2;
         }
+        if (state->settings.winLineLength > state->settings.fieldSize && state->settings.fieldSize != 0) {
+            state->settings.winLineLength = state->settings.fieldSize;
+        }
         return;
-    }
-    if (state->settings.winLineLength > state->settings.fieldSize && state->settings.fieldSize != 0) {
-        state->settings.winLineLength = state->settings.fieldSize;
     }
 
     //  Проверка кликов по длине линии
@@ -1232,8 +1232,7 @@ void drawHelpWindow(AppState* state) {
         "ESC - Return to main menu",
         "M - Show logs of moves",
         "",
-        "Current Settings:",
-        "Difficulty: ",
+        "Difficuly:",
         "Field Size: ",
         "Win Line Length: ",
         "Press H to close"
@@ -1399,21 +1398,30 @@ void drawHelpHint(AppState* state, int width, int height) {
 }
 
 
-void drawGrid(float visibleLeft, float visibleRight,
-    float visibleBottom, float visibleTop, float zoom, int fieldSize) {
+// Отрисовка клеточного поля
+void drawGrid(float visibleLeft, float visibleRight, float visibleBottom, float visibleTop, float zoom, int fieldSize) {
+    // Размер клетки в мировых координатах
     float cellSize = 2.0f / (10.0f * zoom);
+    // Определяем границы видимой области в клетках
     int startX = (int)(visibleLeft / cellSize) - 1;
     int endX = (int)(visibleRight / cellSize) + 1;
     int startY = (int)(visibleBottom / cellSize) - 1;
     int endY = (int)(visibleTop / cellSize) + 1;
+    // Если поле ограничено, корректируем границы отрисовки
     if (fieldSize > 0) {
-        startX = -fieldSize / 2;
-        endX = fieldSize / 2;
-        startY = -fieldSize / 2;
-        endY = fieldSize / 2;
+        startX = (startX < -fieldSize / 2) ? -fieldSize / 2 : startX;
+        endX = (endX > fieldSize / 2) ? fieldSize / 2 : endX;
+        startY = (startY < -fieldSize / 2) ? -fieldSize / 2 : startY;
+        endY = (endY > fieldSize / 2) ? fieldSize / 2 : endY;
     }
+    // Отрисовываем только видимые клетки
     for (int x = startX; x <= endX; ++x) {
         for (int y = startY; y <= endY; ++y) {
+            // Если поле ограничено, пропускаем клетки за границами
+            if (fieldSize > 0 && (abs(x) > fieldSize / 2 || abs(y) > fieldSize / 2)) {
+                continue;
+            }
+            // Вычисляем координаты углов клетки
             float x1 = x * cellSize;
             float y1 = y * cellSize;
             float x2 = x1 + cellSize;
@@ -2192,12 +2200,10 @@ int checkSingleDirection(AppState* state, int startX, int startY,
     int count = 1;
     int lineStartX = startX, lineStartY = startY;
     int lineEndX = startX, lineEndY = startY;
-
     // Проверяем в положительном направлении
     for (int step = 1; step < winLength; step++) {
         int currentX = startX + dx * step;
         int currentY = startY + dy * step;
-
         int found = 0;
         for (int j = 0; j < state->grid.size; j++) {
             if (state->grid.cells[j].x == currentX &&
@@ -2212,12 +2218,10 @@ int checkSingleDirection(AppState* state, int startX, int startY,
         if (!found) break;
         count++;
     }
-
     // Проверяем в отрицательном направлении  
     for (int step = 1; step < winLength; step++) {
         int currentX = startX - dx * step;
         int currentY = startY - dy * step;
-
         int found = 0;
         for (int j = 0; j < state->grid.size; j++) {
             if (state->grid.cells[j].x == currentX &&
@@ -2232,7 +2236,6 @@ int checkSingleDirection(AppState* state, int startX, int startY,
         if (!found) break;
         count++;
     }
-
     if (count >= winLength) {
         state->winLineStartX = lineStartX;
         state->winLineStartY = lineStartY;
@@ -2240,7 +2243,6 @@ int checkSingleDirection(AppState* state, int startX, int startY,
         state->winLineEndY = lineEndY;
         return 1;
     }
-
     return 0;
 }
 
